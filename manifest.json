@@ -1,8 +1,8 @@
 {
-  "name": "RoboTrack VW Commissioning",
+  "name": "RoboTrack  Commissioning",
   "short_name": "RoboTrack VW",
   "description": "Ferramenta offline PWA para rastreamento global de comissionamento de robôs e células produtivas.",
-  "start_url": "./Software_RoboTrack_V8.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0a0f1d",
   "theme_color": "#3b82f6",
