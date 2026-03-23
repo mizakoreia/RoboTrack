@@ -465,22 +465,29 @@
             },
             load() { /* Firebase onSnapshot handles data loading */ },
             save() {
-                const _user = (typeof auth !== 'undefined') ? auth.currentUser : null;
-                if (!_user) { console.warn('[RoboTrack] save() ignorado: usuário não autenticado ainda.'); return; }
+                const _db = window._fbDB;
+                const _auth = window._fbAuth;
+                if (!_db || !_auth) { console.warn('[RoboTrack] Firebase ainda não inicializado.'); return; }
+                const _user = _auth.currentUser;
+                if (!_user) { console.warn('[RoboTrack] save() ignorado: nenhum usuário logado.'); return; }
                 const _indicator = document.getElementById('save-indicator');
                 if (_indicator) { _indicator.textContent = '⏳ Salvando...'; _indicator.style.opacity = '1'; }
-                db.collection('workspaces').doc('vw-main').set({
+                _db.collection('workspaces').doc('vw-main').set({
                     projects: state.projects,
                     defaultTasks: state.defaultTasks,
                     responsibles: state.responsibles,
-                    logs: state.logs
+                    logs: state.logs,
+                    _updatedBy: _user.displayName || _user.email,
+                    _updatedAt: new Date().toISOString()
                 }, { merge: true })
                 .then(() => {
-                    if (_indicator) { _indicator.textContent = '✅ Salvo'; setTimeout(() => { _indicator.style.opacity = '0'; }, 1500); }
+                    console.log('[RoboTrack] ✅ Dados salvos no Firestore por', _user.email);
+                    if (_indicator) { _indicator.textContent = '✅ Salvo'; setTimeout(() => { _indicator.style.opacity = '0'; }, 2000); }
                 })
                 .catch(e => {
-                    console.error('[RoboTrack] Firestore save ERRO:', e);
-                    if (_indicator) { _indicator.textContent = '❌ Erro ao salvar!'; _indicator.style.opacity = '1'; }
+                    console.error('[RoboTrack] ❌ ERRO AO SALVAR:', e.code, e.message);
+                    alert('ERRO ao salvar: ' + e.message + '\n\nVerifique as regras do Firestore no console do Firebase.');
+                    if (_indicator) { _indicator.textContent = '❌ Erro!'; _indicator.style.opacity = '1'; }
                 });
             },
             getProject(pid) { return state.projects.find(p => p.id === pid); },
@@ -528,7 +535,7 @@
             },
             factoryReset() {
                 if(confirm("Você DELETARÁ absolutamente TODAS as células e robôs! Continuar?")) {
-                    db.collection('workspaces').doc('vw-main').delete().then(()=>{ state.projects=[]; location.reload(); });
+                    window._fbDB.collection('workspaces').doc('vw-main').delete().then(()=>{ state.projects=[]; location.reload(); });
                 }
             }
         };
@@ -1048,6 +1055,9 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
+        // Expose as window globals so appState.save() can access safely
+        window._fbDB = db;
+        window._fbAuth = auth;
         window.currentUserId = null;
         let _fsUnsub = null;
 
@@ -1099,7 +1109,7 @@
                 document.getElementById('login-screen').style.display = 'none';
                 const el = document.getElementById('nav-user-email');
                 if (el) el.textContent = '👤 ' + (user.displayName || user.email);
-                _fsUnsub = db.collection('workspaces').doc('vw-main').onSnapshot(function(doc) {
+                _fsUnsub = window._fbDB.collection('workspaces').doc('vw-main').onSnapshot(function(doc) {
                     if (doc.exists) {
                         const d = doc.data();
                         // Only update if data is non-empty to avoid overwriting local changes 
