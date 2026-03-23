@@ -1055,6 +1055,10 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
+        // Enable offline persistence so writes resolve locally even with slow/blocked server
+        db.enablePersistence({ synchronizeTabs: true })
+          .then(() => console.log('[RoboTrack] ✅ Persistência offline ativada'))
+          .catch(err => console.warn('[RoboTrack] Persistência offline não disponível:', err.code));
         // Expose as window globals so appState.save() can access safely
         window._fbDB = db;
         window._fbAuth = auth;
