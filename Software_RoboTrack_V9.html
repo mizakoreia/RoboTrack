@@ -732,7 +732,7 @@
                 
                 if(!state.projects || state.projects.length === 0) {
                     hub.style.display = 'none';
-                    grid.innerHTML = `<div class="empty-state">Nenhum projeto cadastrado ainda.</div>`; return;
+                    grid.innerHTML = `<div class="empty-state"><p style="margin-bottom:16px;">Nenhum projeto cadastrado ainda.</p><button class="btn btn-primary" onclick="uiActions.addProject()">+ Novo Projeto</button></div>`; return;
                 }
                 
                 // Analytics Math Global Progress
@@ -789,7 +789,7 @@
 
                 if(p.cells.length === 0) {
                     hub.style.display = 'none';
-                    grid.innerHTML = `<div class="empty-state">Nenhuma célula neste projeto.</div>`; return;
+                    grid.innerHTML = `<div class="empty-state"><p style="margin-bottom:16px;">Nenhuma célula neste projeto.</p><button class="btn btn-primary" onclick="uiActions.addCell()">+ Nova Célula</button></div>`; return;
                 }
 
                 let totRobots = 0, totTasks = 0, totDone = 0;
@@ -845,7 +845,7 @@
 
                 if(c.robots.length === 0) {
                     hub.style.display = 'none';
-                    grid.innerHTML = `<div class="empty-state">Adicione robôs nesta célula.</div>`; return;
+                    grid.innerHTML = `<div class="empty-state"><p style="margin-bottom:16px;">Nenhum robô adicionado ainda.</p><button class="btn btn-primary" onclick="uiActions.openModalAddRobot()">+ Adicionar Robô</button></div>`; return;
                 }
 
                 let totTasks = 0, totDone = 0;
