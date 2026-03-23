@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#0a0f1d">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="RoboTrack VW">
+    <meta name="apple-mobile-web-app-title" content="RoboTrack">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
@@ -182,7 +182,7 @@
   <div style="background:rgba(18,26,47,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:40px;width:380px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.7);">
     <div style="text-align:center;margin-bottom:32px;">
       <div style="font-size:2.5rem;margin-bottom:8px;">⚙️</div>
-      <h1 style="font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">RoboTrack VW</h1>
+      <h1 style="font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">RoboTrack</h1>
       <p style="color:#94a3b8;font-size:0.85rem;margin-top:4px;">By Miza — Comissionamento Inteligente</p>
     </div>
     <div id="auth-error" style="display:none;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.85rem;color:#fca5a5;"></div>
@@ -527,7 +527,7 @@
                 document.getElementById('modal-logs').classList.add('active');
             },
             addProject() {
-                const name = prompt("Digite o nome do Novo Projeto\nEx: VW Taos 2026");
+                const name = prompt("Digite o nome do Novo Projeto\nEx: Novo Projeto");
                 if(name) { state.projects.push({ id: getUUID(), name: name, cells: [] }); appState.save(); ui.renderDashboard(); }
             },
             addCell() {
