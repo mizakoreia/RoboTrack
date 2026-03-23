@@ -189,9 +189,13 @@
     <label style="display:block;font-size:0.8rem;color:#94a3b8;margin-bottom:6px;">E-mail</label>
     <input id="auth-email" type="email" placeholder="seu@email.com" style="width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);padding:10px 14px;border-radius:8px;color:#fff;font-size:0.95rem;margin-bottom:14px;outline:none;box-sizing:border-box;">
     <label style="display:block;font-size:0.8rem;color:#94a3b8;margin-bottom:6px;">Senha</label>
-    <input id="auth-pass" type="password" placeholder="••••••••" style="width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);padding:10px 14px;border-radius:8px;color:#fff;font-size:0.95rem;margin-bottom:22px;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')authLogin()">
+    <input id="auth-pass" type="password" placeholder="••••••••" style="width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);padding:10px 14px;border-radius:8px;color:#fff;font-size:0.95rem;margin-bottom:14px;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')authLogin()">
+    <div id="register-name-wrap" style="display:none;">
+      <label style="display:block;font-size:0.8rem;color:#94a3b8;margin-bottom:6px;">Seu Nome (aparecerá nas tarefas)</label>
+      <input id="auth-name" type="text" placeholder="Ex: Eng. Rafael" style="width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);padding:10px 14px;border-radius:8px;color:#fff;font-size:0.95rem;margin-bottom:22px;outline:none;box-sizing:border-box;">
+    </div>
     <button onclick="authLogin()" style="width:100%;background:linear-gradient(135deg,#3b82f6,#2563eb);border:none;padding:13px;border-radius:8px;color:#fff;font-size:1rem;font-weight:600;cursor:pointer;margin-bottom:10px;">Entrar</button>
-    <button onclick="authRegister()" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:11px;border-radius:8px;color:#94a3b8;font-size:0.9rem;cursor:pointer;">Criar nova conta</button>
+    <button id="btn-register" onclick="authRegister()" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:11px;border-radius:8px;color:#94a3b8;font-size:0.9rem;cursor:pointer;">Criar nova conta</button>
   </div>
 </div>
 
@@ -610,6 +614,12 @@
                 const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
                 const t = r.tasks.find(x => x.id === tid);
                 if(t) {
+                    // Auto-assign logged user as responsible on first interaction
+                    if ((field === 'progress' || field === 'status') && window.currentUserName) {
+                        if (!t.resp || t.resp === 'Não Atribuído') {
+                            t.resp = window.currentUserName;
+                        }
+                    }
                     if (field === 'status') {
                         t.status = val;
                         if(val === 'Concluído') t.progress = 100;
@@ -1028,11 +1038,21 @@
             auth.signInWithEmailAndPassword(e, p).catch(err => _authErr(err.message));
         }
         function authRegister() {
+            const wrap = document.getElementById('register-name-wrap');
+            if (wrap.style.display === 'none') {
+                wrap.style.display = 'block';
+                document.getElementById('btn-register').textContent = 'Confirmar Cadastro ✓';
+                return;
+            }
             const e = document.getElementById('auth-email').value.trim();
             const p = document.getElementById('auth-pass').value;
+            const n = document.getElementById('auth-name').value.trim();
             if (!e || !p) return _authErr('Preencha email e senha.');
-            if (p.length < 6) return _authErr('Senha precisa ter no mínimo 6 caracteres.');
-            auth.createUserWithEmailAndPassword(e, p).catch(err => _authErr(err.message));
+            if (!n) return _authErr('Preencha seu nome.');
+            if (p.length < 6) return _authErr('Senha mínimo 6 caracteres.');
+            auth.createUserWithEmailAndPassword(e, p)
+                .then(cred => cred.user.updateProfile({ displayName: n }))
+                .catch(err => _authErr(err.message));
         }
         function _authErr(msg) {
             const el = document.getElementById('auth-error');
@@ -1051,9 +1071,10 @@
         auth.onAuthStateChanged(function(user) {
             if (user) {
                 window.currentUserId = user.uid;
+                window.currentUserName = user.displayName || user.email;
                 document.getElementById('login-screen').style.display = 'none';
                 const el = document.getElementById('nav-user-email');
-                if (el) el.textContent = '👤 ' + user.email;
+                if (el) el.textContent = '👤 ' + (user.displayName || user.email);
                 _fsUnsub = db.collection('workspaces').doc('vw-main').onSnapshot(function(doc) {
                     if (doc.exists) {
                         const d = doc.data();
