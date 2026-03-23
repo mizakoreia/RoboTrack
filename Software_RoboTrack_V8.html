@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>RoboTrack - Comissionamento Inteligente</title>
+    
+    <!-- PWA Meta Tags (Mobile Native App Apparence) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0f1d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="RoboTrack VW">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-main: #0a0f1d; --bg-panel: rgba(18, 26, 47, 0.7); --bg-hover: rgba(30, 41, 59, 0.8);
+            --border: rgba(255, 255, 255, 0.1); --text-main: #f8fafc; --text-muted: #94a3b8;
+            --accent: #3b82f6; --accent-glow: rgba(59, 130, 246, 0.4);
+            --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --glass-blur: 16px;
+        }
+        body[data-theme="light"] {
+            --bg-main: #f1f5f9; --bg-panel: rgba(255,255,255,0.9); --bg-hover: rgba(226,232,240,0.8);
+            --border: rgba(0,0,0,0.15); --text-main: #0f172a; --text-muted: #475569;
+            --accent: #2563eb; --accent-glow: rgba(37,99,235,0.2);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; color: var(--text-main); }
+        button { cursor: pointer; border: none; outline: none; background: none; }
+
+        body {
+            background: var(--bg-main); height: 100vh; display: flex; overflow: hidden; font-size: 14px; transition: background 0.3s;
+        }
+
+        @media print {
+            .sidebar, .action-btns, .slider-cont, button, .filter-bar, .modal-overlay, #btn-sync-tasks { display: none !important; }
+            body, .main { height: auto !important; overflow: visible !important; background: #fff !important; color: #000 !important; }
+            * { color: #000 !important; text-shadow: none !important; }
+            .card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; }
+            table, th, td { border-color: #ccc; }
+            .badge { border: 1px solid #aaa; color: #000; background: #eee !important; }
+            .status-select { border: none !important; background: transparent !important; color: #000 !important; }
+            @page { margin: 1cm; size: A4 landscape; }
+        }
+        
+        .filter-btn { padding:6px 14px; border-radius:20px; font-size:0.75rem; font-weight:600; cursor:pointer; background:var(--bg-panel); color:var(--text-muted); border:1px solid var(--border); transition:0.2s; margin-right:6px;}
+        .filter-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+        /* Sidebar */
+        .sidebar { width: 260px; background: var(--bg-panel); backdrop-filter: blur(var(--glass-blur)); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; z-index: 10; }
+        .brand { padding: 0 24px 24px; font-size: 1.25rem; font-weight: 700; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+        .brand span { background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .nav-list { list-style: none; padding: 16px 12px; flex: 1; overflow-y: auto; }
+        .nav-item { padding: 10px 16px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-weight: 500; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .nav-item.active { background: rgba(59, 130, 246, 0.15); color: #fff; border-left: 3px solid var(--accent); }
+        .nav-group { margin-top: 16px; padding: 0 16px 8px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.3); font-weight: 700; }
+
+        /* Main Content */
+        .main { flex: 1; padding: 32px 40px; overflow-y: auto; position: relative; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+        .title { font-size: 1.8rem; font-weight: 700; margin-bottom: 8px; display:flex; align-items:center; gap: 12px; }
+        .subtitle { color: var(--text-muted); }
+
+        /* Animations */
+        .view { display: none; }
+        .view.active { display: block; animation: viewEnter 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        @keyframes viewEnter { from{opacity:0; transform: scale(0.97) translateY(10px)} to{opacity:1; transform: scale(1) translateY(0)} }
+        @keyframes successPulse { 0% { transform: scale(1); } 50% { transform: scale(1.05) translateZ(0); } 100% { transform: scale(1); } }
+        .pulse-anim { animation: successPulse 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* Modals */
+        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-overlay.active { display: flex; animation: fadeIn 0.15s; }
+        @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+        .modal-content { background: var(--bg-main); border: 1px solid var(--border); padding: 32px; border-radius: 16px; width: 440px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); transform: scale(0.9); animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes modalPop { to { transform: scale(1); } }
+        .modal-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 12px; }
+        .modal-desc { color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem;}
+
+        /* Dashboard & Grid Cards */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; }
+        .card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 24px; transition: 0.3s; cursor: pointer; position: relative; }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.3), 0 0 15px var(--accent-glow); border-color: rgba(255,255,255,0.2); }
+        .card-header { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start;}
+        
+        .progress-circle { margin: 20px auto; width: 100px; height: 100px; position: relative; }
+        .progress-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .progress-circle circle { fill: none; stroke-width: 6; stroke-linecap: round; }
+        .progress-circle .bg { stroke: rgba(255,255,255,0.05); }
+        .progress-circle .value { stroke: var(--accent); transition: stroke-dasharray 0.5s; }
+        .progress-circle .text { position: absolute; top:50%; width:100%; transform:translateY(-50%); text-align:center; font-weight:700; font-size:1.2rem; }
+        
+        .card-footer { font-size: 0.85rem; color: var(--text-muted); border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 12px; display: flex; justify-content: space-between; }
+        
+        .action-btns { display: none; position: absolute; top: 12px; right: 12px; gap: 4px; }
+        .card:hover .action-btns { display: flex; }
+        .action-btns button { padding: 6px; border-radius: 6px; }
+        .edit-btn { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        .delete-btn { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+
+        .empty-state { padding: 40px; text-align: center; border: 2px dashed rgba(255,255,255,0.1); border-radius: 12px; color: var(--text-muted); }
+
+        /* Lists and Tables */
+        .panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); font-weight: 600; display:flex; justify-content: space-between; align-items:center; }
+        table { width: 100%; border-collapse: collapse; text-align:left; }
+        th, td { padding: 14px 20px; border-bottom: 1px solid var(--border); }
+        th { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); background: rgba(0,0,0,0.1); }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+        .cat-row { background: rgba(59, 130, 246, 0.1) !important; color: var(--accent); font-weight: 700; }
+        
+        /* Inputs & Buttons */
+        input, select { background: rgba(0,0,0,0.3); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; color: #fff; width: 100%; outline: none; transition: 0.2s; margin-bottom: 8px;}
+        input:focus, select:focus { border-color: var(--accent); background: rgba(0,0,0,0.5);}
+        
+        .btn { padding: 8px 16px; border-radius: 6px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; border: 1px solid var(--border); background: var(--bg-panel); color: #fff; }
+        .btn:hover { background: rgba(255,255,255,0.1); }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), #2563eb); border: none; font-weight: 600; box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);}
+        .btn-primary:hover { background: #2563eb; box-shadow: 0 0 15px var(--accent-glow); transform: translateY(-1px);}
+        .btn-danger { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;}
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.4); }
+        .btn-icon { padding: 6px; border:none; background:none; color: var(--text-muted); border-radius:4px; margin-bottom:0;}
+        .btn-icon:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+        .slider-cont { display: flex; align-items: center; gap: 10px; }
+        input[type="range"] { -webkit-appearance: none; appearance: none; width: 80px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin:0;}
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+
+        .status-select { appearance: none; -webkit-appearance: none; background: transparent; border: 1px solid transparent; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; cursor: pointer; outline: none; margin:0;}
+        .status-select.pendente { background: rgba(245, 158, 11, 0.15); color: var(--warning); border-color: rgba(245, 158, 11, 0.3); }
+        .status-select.andamento { background: rgba(59, 130, 246, 0.15); color: var(--accent); border-color: rgba(59, 130, 246, 0.3); }
+        .status-select.concluido { background: rgba(16, 185, 129, 0.15); color: var(--success); border-color: rgba(16, 185, 129, 0.3); }
+        .status-select.na { background: rgba(161, 161, 170, 0.15); color: #a1a1aa; border-color: rgba(161, 161, 170, 0.3); }
+        .status-select option { background: var(--bg-main); color: #fff; }
+
+        .badge { display: inline-flex; align-items:center; justify-content:center; gap: 4px; padding: 4px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3);}
+        .badge.andamento { color: var(--accent); }
+
+        .form-row { display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-end;}
+        .form-col { flex: 1; }
+        .form-label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; }
+
+        .clickable-text { color: var(--text-muted); cursor: pointer; display: flex; align-items:center; gap: 8px;}
+        .clickable-text:hover { color: #fff; }
+
+        svg { flex-shrink: 0; }
+        
+        .resp-tag { padding: 4px 10px; border-radius: 12px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 8px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: var(--accent); }
+        
+        /* CSS Responsivo Mobile PWA */
+        @media (max-width: 800px) {
+            body { flex-direction: column; overflow-y: auto; overflow-x: hidden; display: block; }
+            .sidebar { width: 100%; height: auto; flex-direction: column; padding: 16px; border-right: none; border-bottom: 1px solid var(--border); overflow: visible; z-index: 50; }
+            .brand { padding: 0 0 12px 0; width: 100%; justify-content: center; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 12px; }
+            .nav-list { display: flex; flex-direction: row; gap: 8px; padding: 0; width: 100%; overflow-x: auto; flex-wrap: nowrap; overflow-y: hidden; }
+            .nav-list::-webkit-scrollbar { display: none; }
+            .nav-group { display: none; }
+            .nav-item { padding: 8px 16px; margin: 0; border-radius: 20px; font-size: 0.8rem; border-left: none !important; white-space: nowrap; }
+            .nav-item.active { background: rgba(59, 130, 246, 0.2); }
+            
+            .main { padding: 20px 16px; width: 100%; overflow: visible; }
+            .header { flex-direction: column; align-items: stretch; gap: 16px; }
+            .header .action-btns { width: 100%; flex-direction: column; gap: 8px; }
+            .header .btn { flex: 1; justify-content: center; text-align: center; width: 100%; }
+            
+            .grid { grid-template-columns: 1fr; gap: 16px; }
+            .panel { overflow-x: auto; width: calc(100vw - 32px); max-width: 100%; -webkit-overflow-scrolling: touch; }
+            table { min-width: 800px; display: table; }
+            .modal-content { width: 92%; padding: 20px; }
+            .form-row { flex-direction: column; align-items: stretch; gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="brand">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg>
+            <div style="display: flex; flex-direction: column;">
+                <span>RoboTrack</span>
+                <span style="font-size: 0.65rem; color: var(--text-muted); -webkit-text-fill-color: var(--text-muted); background: none; text-transform: uppercase; letter-spacing: 0.05em; margin-top: -2px; font-weight: 500;">By Miza</span>
+            </div>
+        </div>
+        
+        <ul class="nav-list" id="nav-list">
+            <li class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                Visão Geral
+            </li>
+            <div class="nav-group" style="margin-top: 24px;">Configurações</div>
+            <li class="nav-item" onclick="nav('settings')" id="nav-settings">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                Tarefas, Equipe e Filtros
+            </li>
+            <li class="nav-item" onclick="appState.exportBackup()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Backup (.json)
+            </li>
+            <div class="nav-group" style="margin-top: 24px;">Extra</div>
+            <li class="nav-item" onclick="document.body.dataset.theme = document.body.dataset.theme === 'light' ? 'dark' : 'light';">
+                🌓 Escuro / Claro
+            </li>
+            <li class="nav-item" onclick="window.print()">
+                🖨️ Relatório A4
+            </li>
+            <li class="nav-item" onclick="uiActions.openLogsModal()">
+                📋 Logs & Histórico
+            </li>
+        </ul>
+    </aside>
+
+    <main class="main">
+        <!-- DASHBOARD VIEW -->
+        <div id="view-dashboard" class="view active">
+            <div class="header">
+                <div><h1 class="title">Visão Geral</h1><p class="subtitle">Lista de todos os projetos cadastrados.</p></div>
+                <button class="btn btn-primary" onclick="uiActions.addProject()">+ Novo Projeto</button>
+            </div>
+            <div id="dashboard-hub" style="margin-bottom:24px; display:none;"></div>
+            <div class="grid" id="dashboard-cards"></div>
+        </div>
+
+        <!-- PROJECT VIEW -->
+        <div id="view-project" class="view">
+            <div class="header">
+                <div>
+                    <div class="clickable-text" onclick="nav('dashboard')" style="margin-bottom: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Voltar</div>
+                    <h1 class="title" id="project-title">Projeto</h1>
+                    <p class="subtitle">Gerencie as células associadas à este projeto.</p>
+                </div>
+                <button class="btn btn-primary" onclick="uiActions.addCell()">+ Nova Célula</button>
+            </div>
+            <div id="project-hub" style="margin-bottom:24px; display:none;"></div>
+            <div class="grid" id="project-cells-cards"></div>
+        </div>
+
+        <!-- CELL VIEW -->
+        <div id="view-cell" class="view">
+            <div class="header">
+                <div>
+                    <div class="clickable-text" id="back-to-project-btn" style="margin-bottom: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Voltar para Projeto</div>
+                    <h1 class="title" id="cell-title">Célula</h1>
+                    <p class="subtitle">Gerencie os robôs associados à esta unidade.</p>
+                </div>
+                <button class="btn btn-primary" onclick="uiActions.openModalAddRobot()">+ Adicionar Robô</button>
+            </div>
+            <div id="cell-hub" style="margin-bottom:24px; display:none;"></div>
+            <div class="grid" id="cell-robots-cards"></div>
+        </div>
+
+        <!-- ROBOT VIEW -->
+        <div id="view-robot" class="view">
+            <div class="header">
+                <div>
+                    <div class="clickable-text" id="back-to-cell-btn" style="margin-bottom: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Voltar para Célula</div>
+                    <h1 class="title" id="robot-title">Robô</h1>
+                    <p class="subtitle" id="robot-app-info">Acompanhe as tarefas relacionadas (filtrado p/ aplicação do robô).</p>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn" id="btn-sync-tasks"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.3-10.2L21.5 8"></path></svg> Forçar Padrões</button>
+                    <button class="btn btn-primary" id="btn-add-task">+ Cadastrar Tarefa Específica</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header" style="display:flex; flex-direction:column; align-items:flex-start; gap:16px;">
+                    <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                        <span>Checklist de Comissionamento</span>
+                        <span class="badge active" style="font-size:1rem; padding: 4px 12px; border-radius:12px; background:rgba(255,255,255,0.1)" id="rpct_header">0%</span>
+                    </div>
+                    <div class="filter-bar" id="robot-filters">
+                        <button class="filter-btn active" onclick="uiActions.setFilter('T', this)">Todas</button>
+                        <button class="filter-btn" onclick="uiActions.setFilter('P', this)">Pendentes</button>
+                        <button class="filter-btn" onclick="uiActions.setFilter('C', this)">Concluídas</button>
+                    </div>
+                </div>
+                <table id="robot-tasks-table">
+                    <thead><tr><th>Tarefa / Ação</th><th style="width:200px">Status (N/A Ignora %)</th><th>Progresso (%)</th><th>Responsável</th><th>Observações</th><th style="width:50px;"></th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SETTINGS VIEW: Global Templates -->
+        <div id="view-settings" class="view">
+            <div class="header">
+                <div><h1 class="title">Configurações Gerais</h1><p class="subtitle">Cadastre Membros da Equipe e Modelos Base de Tarefas dependentes da Aplicação.</p></div>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-header">Equipe (Dropdowns de Responsáveis)</div>
+                <div style="padding: 20px;">
+                    <div class="form-row" style="margin-bottom: 24px;">
+                        <div class="form-col" style="flex:0.5"><label class="form-label">Nome do Membro da Equipe</label><input type="text" id="inp-resp-name" placeholder="Ex: Eng. Rafael Silva"></div>
+                        <button class="btn btn-primary" onclick="uiActions.addResponsible()" style="margin-bottom: 8px;">+ Cadastrar Pessoa</button>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:12px;" id="responsibles-list">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">Modelos de Tarefas (Filtros de Aplicação)</div>
+                <div style="padding: 20px;">
+                    <div class="form-row">
+                        <div class="form-col" style="flex:0.5"><label class="form-label">Categoria</label><input type="text" id="inp-dt-cat" placeholder="Ex: Preparação"></div>
+                        <div class="form-col"><label class="form-label">Descrição</label><input type="text" id="inp-dt-desc" placeholder="Ex: Fixação"></div>
+                        <div class="form-col" style="flex:0.5"><label class="form-label">Aplica-se em (Aplicação)</label>
+                            <select id="inp-dt-app">
+                                <option value="">Misto / Geral (Todos)</option>
+                                <option value="Solda Ponto">Solda Ponto</option>
+                                <option value="Solda MIG">Solda MIG</option>
+                                <option value="Handling">Handling (Manipulação)</option>
+                                <option value="Sealing">Sealing (Aplicação de Cola)</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="uiActions.addDefaultTask()" style="margin-bottom:8px">Adicionar no Padrão</button>
+                    </div>
+                    <table id="tbl-manage-tasks">
+                        <thead><tr><th>Categoria</th><th>Descrição</th><th>Público Alvo (Aplicações)</th><th>Ações</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+             <div class="panel" style="border-color: rgba(239, 68, 68, 0.3);">
+                <div class="panel-header" style="color: #fca5a5;">Zona de Perigo</div>
+                <div style="padding: 20px;">
+                    <button class="btn btn-danger" onclick="appState.factoryReset()">Deletar Todo o Sistema</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL ADD ROBOT -->
+    <div class="modal-overlay" id="modal-add-robot">
+        <div class="modal-content">
+            <h2 class="modal-title">Novo Robô</h2>
+            <p class="modal-desc">As tarefas geradas vão depender da classe do robô selecionada.</p>
+            
+            <label class="form-label">Nome do Robô</label>
+            <input type="text" id="inp-robot-name" placeholder="Ex: R01 - Solda Lateral">
+            
+            <label class="form-label" style="margin-top:12px">Aplicação</label>
+            <select id="sel-robot-app" style="margin-bottom:24px">
+                <option value="Misto / Geral">Misto / Geral</option>
+                <option value="Solda Ponto">Solda Ponto</option>
+                <option value="Solda MIG">Solda MIG</option>
+                <option value="Handling">Handling (Manipulação)</option>
+                <option value="Sealing">Sealing (Aplicação de Cola)</option>
+            </select>
+            
+            <div style="display:flex; justify-content:flex-end; gap:12px">
+                <button class="btn" onclick="uiActions.closeModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="uiActions.confirmAddRobot()">Cadastrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LOGS -->
+    <div class="modal-overlay" id="modal-logs">
+        <div class="modal-content" style="width:600px; max-height:80vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 class="modal-title" style="margin:0;">Registro de Auditoria</h2>
+                <button onclick="document.getElementById('modal-logs').classList.remove('active')" style="color:var(--text-muted); font-size:1.5rem;">&times;</button>
+            </div>
+            <p class="modal-desc" style="margin-bottom:16px;">Diário de bordo gerado automaticamente pelo sistema.</p>
+            <div id="logs-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const getUUID = () => 'uid_' + Math.random().toString(36).substr(2, 9);
+        let activeContext = { projectId: null, cellId: null, robotId: null };
+        const ALLOWED_APPS = ["Misto / Geral", "Solda Ponto", "Solda MIG", "Handling", "Sealing", "Outros"];
+
+        const defaultTemplates = [
+            { id: getUUID(), cat: "A. Hardware", desc: "Power On", appFilters: [] },
+            { id: getUUID(), cat: "A. Hardware", desc: "Mastering Check", appFilters: [] },
+            { id: getUUID(), cat: "A. Hardware", desc: "Montagem de Ferramenta", appFilters: [] },
+            { id: getUUID(), cat: "A. Hardware", desc: "Check de Ferramenta/Umbilical", appFilters: [] },
+            { id: getUUID(), cat: "B. Rede", desc: "Config. Endereço de IP", appFilters: [] },
+            { id: getUUID(), cat: "B. Rede", desc: "Rede Principal", appFilters: [] },
+            { id: getUUID(), cat: "B. Rede", desc: "Sub Rede", appFilters: [] },
+            { id: getUUID(), cat: "C. Segurança", desc: "Definir Cubos e esferas de segurança", appFilters: [] },
+            { id: getUUID(), cat: "C. Segurança", desc: "Self Check de segurança do Robo", appFilters: [] },
+            { id: getUUID(), cat: "D. Processo", desc: "TCP Check", appFilters: [] },
+            { id: getUUID(), cat: "D. Processo", desc: "Calibração de Frame", appFilters: [] },
+            { id: getUUID(), cat: "D. Processo", desc: "Payload", appFilters: [] },
+            { id: getUUID(), cat: "D. Processo", desc: "Calibração de Cola", appFilters: ["Sealing"] }, 
+            { id: getUUID(), cat: "D. Processo", desc: "Check sinais de Gripper", appFilters: ["Handling", "Solda Ponto"] }, 
+            { id: getUUID(), cat: "E. Trajetórias", desc: "Carregar OLP", appFilters: [] },
+            { id: getUUID(), cat: "E. Trajetórias", desc: "Teach Traj. Sem Peça", appFilters: [] },
+            { id: getUUID(), cat: "E. Trajetórias", desc: "Teach Traj. Com Peça", appFilters: [] },
+            { id: getUUID(), cat: "E. Trajetórias", desc: "Carregar Parâmetros", appFilters: [] },
+            { id: getUUID(), cat: "E. Trajetórias", desc: "Traj, de Descarte", appFilters: [] },
+            { id: getUUID(), cat: "E. Trajetórias", desc: "Manutenção", appFilters: [] },
+            { id: getUUID(), cat: "F. Interlocks", desc: "PLC-ROB interlocks/Sinais", appFilters: [] },
+            { id: getUUID(), cat: "G. Tryout", desc: "Dryrun Baixa velocidade ate 100%", appFilters: [] },
+            { id: getUUID(), cat: "G. Tryout", desc: "Dryrun Diferentes velocidades", appFilters: [] },
+            { id: getUUID(), cat: "G. Tryout", desc: "Automatico baixa velocidade", appFilters: [] },
+            { id: getUUID(), cat: "G. Tryout", desc: "Speed up", appFilters: [] },
+            { id: getUUID(), cat: "H. Otimização", desc: "Medição de Tempo de Ciclo Com peça", appFilters: [] },
+            { id: getUUID(), cat: "H. Otimização", desc: "Otimização de Trajetoria", appFilters: [] },
+            { id: getUUID(), cat: "I. Aceitação", desc: "Check de aceitação interna", appFilters: [] },
+            { id: getUUID(), cat: "I. Aceitação", desc: "Check de aceitação do cliente", appFilters: [] },
+            { id: getUUID(), cat: "I. Aceitação", desc: "Treinamento ao cliente", appFilters: [] },
+            { id: getUUID(), cat: "I. Aceitação", desc: "Acompanhamento", appFilters: [] }
+        ].map(t => ({ ...t, weight: 1 }));
+
+        let state = {
+            version: 8,
+            projects: [],
+            defaultTasks: [...defaultTemplates],
+            responsibles: ["Não Atribuído"],
+            logs: []
+        };
+        let currentTaskFilter = 'T'; // T: Todos, P: Pendentes, C: Concluídos
+
+        const appState = {
+            addLog(msg) {
+                if(!state.logs) state.logs = [];
+                state.logs.unshift({ ts: new Date().toLocaleString('pt-BR'), msg });
+                if(state.logs.length > 200) state.logs.pop();
+                this.save();
+            },
+            load() {
+                const saved = localStorage.getItem('roboTrackData');
+                if (saved) {
+                    try { 
+                        const parsed = JSON.parse(saved);
+                        if (!parsed.version || parsed.version < 8) { 
+                            if(parsed.projects) state.projects = parsed.projects;
+                            else if(parsed.cells) state.projects = [{ id: getUUID(), name: "Projeto Padrão VW (Legado)", cells: parsed.cells }];
+                            
+                            if(parsed.defaultTasks) state.defaultTasks = parsed.defaultTasks;
+                            if(parsed.responsibles) state.responsibles = parsed.responsibles;
+                            if(parsed.logs) state.logs = parsed.logs;
+                            state.version = 8;
+                            this.save();
+                        } else {
+                            if(parsed.projects) state.projects = parsed.projects;
+                            if(parsed.defaultTasks) state.defaultTasks = parsed.defaultTasks;
+                            if(parsed.responsibles) state.responsibles = parsed.responsibles;
+                            if(parsed.logs) state.logs = parsed.logs;
+                        }
+                    } catch(e){}
+                }
+            },
+            save() { localStorage.setItem('roboTrackData', JSON.stringify(state)); },
+            getProject(pid) { return state.projects.find(p => p.id === pid); },
+            getCell(pid, cid) { 
+                const p = this.getProject(pid);
+                return p ? p.cells.find(c => c.id === cid) : null; 
+            },
+            getRobot(pid, cid, rid) { 
+                const c = this.getCell(pid, cid);
+                return c ? c.robots.find(r => r.id === rid) : null;
+            },
+            calcRobotProgress(robot) {
+                if(!robot.tasks || robot.tasks.length === 0) return 0;
+                let tWeight = 0, cPoints = 0, validTasksCount = 0;
+                robot.tasks.forEach(t => { 
+                    if(t.status.includes("N/A")) return; 
+                    validTasksCount++;
+                    tWeight += (t.weight||1)*100; 
+                    cPoints += (t.weight||1)*(t.progress||0); 
+                });
+                if(validTasksCount === 0 && robot.tasks.length > 0) return 100;
+                return tWeight === 0 ? 0 : Math.round((cPoints / tWeight) * 100);
+            },
+            calcCellProgress(cell) {
+                if(!cell.robots || cell.robots.length === 0) return 0;
+                let sum = 0;
+                cell.robots.forEach(r => sum += this.calcRobotProgress(r));
+                return Math.round(sum / cell.robots.length);
+            },
+            calcProjectProgress(project) {
+                if(!project.cells || project.cells.length === 0) return 0;
+                let sum = 0;
+                project.cells.forEach(c => sum += this.calcCellProgress(c));
+                return Math.round(sum / project.cells.length);
+            },
+            getStatusStyle(val) {
+                if(val === "Concluído") return "concluido";
+                if(val === "Em Andamento") return "andamento";
+                if(val === "N/A") return "na";
+                return "pendente";
+            },
+            exportBackup() {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+                const a = document.createElement('a'); a.download = "RoboTrack_Database.json"; a.href = dataStr; a.click();
+            },
+            factoryReset() {
+                if(confirm("Você DELETARÁ absolutamente TODAS as células e robôs! Continuar?")) {
+                    localStorage.removeItem('roboTrackData'); location.reload();
+                }
+            }
+        };
+
+        const uiActions = {
+            setFilter(f, btnNode) {
+                currentTaskFilter = f;
+                if(btnNode) {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btnNode.classList.add('active');
+                }
+                ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+            },
+            openLogsModal() {
+                const list = document.getElementById('logs-list');
+                if(!state.logs || state.logs.length === 0) list.innerHTML = "<i>Nenhum registro.</i>";
+                else list.innerHTML = state.logs.map(l => `<div style="background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:6px; font-size:0.8rem; display:flex; gap:12px;"><span style="color:var(--accent); white-space:nowrap;">[${l.ts}]</span><span>${l.msg}</span></div>`).join('');
+                document.getElementById('modal-logs').classList.add('active');
+            },
+            addProject() {
+                const name = prompt("Digite o nome do Novo Projeto\nEx: VW Taos 2026");
+                if(name) { state.projects.push({ id: getUUID(), name: name, cells: [] }); appState.save(); ui.renderDashboard(); }
+            },
+            addCell() {
+                const name = prompt("Digite o nome da Nova Célula\nEx: Célula de Solda LD");
+                if(name) { 
+                    const p = appState.getProject(activeContext.projectId);
+                    p.cells.push({ id: getUUID(), name: name, robots: [] }); 
+                    appState.save(); ui.renderProject(activeContext.projectId); 
+                }
+            },
+            openModalAddRobot() {
+                document.getElementById('inp-robot-name').value = '';
+                document.getElementById('modal-add-robot').classList.add('active');
+            },
+            closeModal() { document.getElementById('modal-add-robot').classList.remove('active'); },
+            
+            confirmAddRobot() {
+                const name = document.getElementById('inp-robot-name').value;
+                const appType = document.getElementById('sel-robot-app').value;
+                if(!name) return alert("Digite o nome do robô.");
+                
+                const c = appState.getCell(activeContext.projectId, activeContext.cellId);
+                const rTasks = [];
+                
+                if(state.defaultTasks) {
+                    state.defaultTasks.forEach(dt => {
+                        let filters = dt.appFilters || dt.apps || [];
+                        let ok = (filters.length === 0 || filters.includes('Misto / Geral') || filters.includes('Todas'));
+                        if(!ok && filters.includes(appType)) ok = true;
+                        
+                        if(ok) {
+                            rTasks.push({ id: getUUID(), cat: dt.cat || "Extra", desc: dt.desc, weight: 1, progress: 0, status: "Pendente", resp: "Não Atribuído", obs: "" });
+                        }
+                    });
+                }
+                
+                c.robots.push({ id: getUUID(), name: name, application: appType, tasks: rTasks });
+                appState.save();
+                this.closeModal();
+                ui.renderCell(activeContext.projectId, activeContext.cellId);
+            },
+
+            addCustomTask() {
+                const cat = prompt("Qual a Categoria? (Deixe em branco p/ Extras)", "Extras - Geral");
+                if(cat === null) return; 
+                const desc = prompt("Descreva a tarefa detalhadamente:", "");
+                if(!desc) return;
+
+                const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+                if(!r) return;
+                r.tasks.push({ id: getUUID(), cat: cat||"Extra", desc, weight: 1, progress: 0, status: "Pendente", resp: "Não Atribuído", obs: "" });
+                appState.save();
+                ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+            },
+            renameCell(e, cid) {
+                e.stopPropagation();
+                const c = appState.getCell(cid);
+                const n = prompt("NOVO NOME DA CÉLULA:", c.name);
+                if(n && n !== c.name) { c.name = n; appState.save(); ui.renderDashboard(); }
+            },
+            renameRobot(e, cid, rid) {
+                e.stopPropagation();
+                const r = appState.getRobot(cid, rid);
+                const n = prompt("NOVO NOME DO ROBÔ:", r.name);
+                if(n && n !== r.name) { r.name = n; appState.save(); ui.renderCell(cid); }
+            },
+            deleteCell(e, cid) {
+                e.stopPropagation();
+                if(confirm("Remover esta CÉLULA inteira?")) { state.cells = state.cells.filter(c => c.id !== cid); appState.save(); ui.renderDashboard(); }
+            },
+            deleteRobot(e, cid, rid) {
+                e.stopPropagation();
+                if(confirm("Remover este ROBÔ e as tarefas dele?")) { const c = appState.getCell(cid); c.robots = c.robots.filter(r => r.id !== rid); appState.save(); ui.renderCell(cid); }
+            },
+            deleteTask(tid) {
+                if(confirm("Deletar esta tarefa do robô?")) { const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); r.tasks = r.tasks.filter(t => t.id !== tid); appState.save(); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
+            },
+
+            updateTask(tid, field, val) {
+                const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+                const t = r.tasks.find(x => x.id === tid);
+                if(t) {
+                    if (field === 'status') {
+                        t.status = val;
+                        if(val === 'Concluído') t.progress = 100;
+                        if(val.includes('N/A')) t.progress = 0;
+                        if(val === 'Pendente') t.progress = 0;
+                    } 
+                    else if (field === 'progress') {
+                        const newVal = Number(val);
+                        t.progress = newVal;
+
+                        if (t.progress === 100) {
+                            t.status = "Concluído";
+                            appState.addLog(`Em [${r.name}], ${t.resp} concluiu a tarefa "${t.desc}" com 100%.`);
+                        }
+                        else if (t.progress > 0) t.status = "Em Andamento";
+                        else if (!t.status.includes("N/A")) t.status = "Pendente"; 
+                    } 
+                    else {
+                        t[field] = val;
+                    }
+                    
+                    appState.save();
+                    ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); // Fully re-render to secure UI state mapping seamlessly
+                    
+                    if((field === 'progress' || field === 'status') && t.progress === 100) {
+                        const row = document.getElementById(`tr_${tid}`);
+                        if(row) { row.classList.remove('pulse-anim'); void row.offsetWidth; row.classList.add('pulse-anim'); }
+                    }
+                }
+            },
+            
+            // Teams Settings
+            addResponsible() {
+                const n = document.getElementById('inp-resp-name').value;
+                if(!n) return alert("Digite um nome!");
+                if(!state.responsibles) state.responsibles = ["Não Atribuído"];
+                if(!state.responsibles.includes(n)) state.responsibles.push(n);
+                document.getElementById('inp-resp-name').value = '';
+                appState.save();
+                ui.renderSettings();
+            },
+            deleteResponsible(r) {
+                if(confirm(`Remover o(a) responsável ${r}?`)) {
+                    state.responsibles = state.responsibles.filter(x => x !== r);
+                    appState.save();
+                    ui.renderSettings();
+                }
+            },
+            
+            // Templates settings
+            addDefaultTask() {
+                const c = document.getElementById('inp-dt-cat').value;
+                const d = document.getElementById('inp-dt-desc').value;
+                const a = document.getElementById('inp-dt-app').value;
+                if(!c || !d) return alert("Preencha categoria e descrição.");
+                if(!state.defaultTasks) state.defaultTasks = [];
+                state.defaultTasks.push({ id: getUUID(), cat: c, desc: d, weight: 1, appFilters: a ? [a] : [] });
+                appState.save();
+                ui.renderSettings();
+            },
+            deleteDefaultTask(tid) {
+                state.defaultTasks = state.defaultTasks.filter(t => t.id !== tid);
+                appState.save();
+                ui.renderSettings();
+            },
+            editAppFilter(tid) {
+                 const t = state.defaultTasks.find(x => x.id === tid);
+                 if(!t) return;
+                 let filters = t.appFilters || t.apps || [];
+                 let current = filters.length ? filters[0] : "Misto / Geral";
+                 const res = prompt(`SELECIONE A APLICAÇÃO DA TAREFA: \nDigite exatamente um dos filtros abaixo:\n[ Misto / Geral, Solda Ponto, Solda MIG, Handling, Sealing, Outros ]\n\nAtual: ${current}`, current);
+                 if(res) {
+                     if(res === 'Misto / Geral' || res === 'Geral') t.appFilters = [];
+                     else t.appFilters = [res];
+                     appState.save();
+                     ui.renderSettings();
+                 }
+            },
+            forceSyncDefault() {
+                 if(!confirm("Gerar tarefas base de acordo com a APLICAÇÃO do robô (não sobreescreve). Continuar?")) return;
+                 const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+                 if(!r) return;
+                 let added = 0;
+                 if(state.defaultTasks) {
+                     state.defaultTasks.forEach(dt => {
+                         let filters = dt.appFilters || dt.apps || [];
+                         let ok = (filters.length === 0 || filters.includes('Misto / Geral') || filters.includes('Todas'));
+                         if(!ok && filters.includes(r.application || 'Misto / Geral')) ok = true;
+                         
+                         if(ok && !r.tasks.find(t => t.desc === dt.desc)) {
+                             r.tasks.push({ id: getUUID(), cat: dt.cat || "Extra", desc: dt.desc, weight: 1, progress:0, status:"Pendente", resp:"Não Atribuído", obs:"" });
+                             added++;
+                         }
+                     });
+                 }
+                 if(added > 0) { appState.save(); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
+                 alert(added + " tarefas foram adicionadas.");
+            }
+        };
+
+        const ui = {
+            buildCircle(pct) {
+                const dash = `${pct}, 100`; let color = "var(--warning)";
+                if(pct >= 100) color = "var(--success)"; else if (pct > 40) color = "var(--accent)";
+                return `<div class="progress-circle"><svg viewBox="0 0 36 36"><path class="bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="value" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke-dasharray="${dash}" style="stroke:${color};" /></svg><div class="text">${pct}%</div></div>`;
+            },
+            renderDashboard() {
+                const grid = document.getElementById('dashboard-cards');
+                const hub = document.getElementById('dashboard-hub');
+                
+                if(!state.projects || state.projects.length === 0) {
+                    hub.style.display = 'none';
+                    grid.innerHTML = `<div class="empty-state">Nenhum projeto cadastrado ainda.</div>`; return;
+                }
+                
+                // Analytics Math Global Progress
+                let totRobots = 0, totTasks = 0, totDone = 0;
+                state.projects.forEach(p => {
+                    p.cells.forEach(c => {
+                        totRobots += c.robots.length;
+                        c.robots.forEach(r => {
+                            totTasks += r.tasks.length;
+                            totDone += r.tasks.filter(t => t.status === "Concluído").length;
+                        });
+                    });
+                });
+                let globalPct = totTasks === 0 ? 0 : Math.round((totDone/totTasks)*100);
+                
+                hub.style.display = 'block';
+                hub.innerHTML = `
+                    <div style="background:var(--bg-panel); padding:24px; border-radius:16px; border:1px solid var(--border);">
+                        <h3 style="margin-bottom:16px; font-weight:600;">Hub Analítico</h3>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:0.9rem;">
+                            <span>Projetos Ativos: <b>${state.projects.length}</b></span>
+                            <span>Robôs Analisados: <b>${totRobots}</b></span>
+                            <span>Tarefas Processadas: <b><span style="color:var(--success)">${totDone}</span> / ${totTasks}</b></span>
+                        </div>
+                        <div style="width:100%; height:12px; background:rgba(255,255,255,0.05); border-radius:6px; overflow:hidden;">
+                            <div style="height:100%; background:var(--accent); width:${globalPct}%; transition:width 1s;"></div>
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); text-align:right; margin-top:8px;">${globalPct}% Progresso Físico Global</div>
+                    </div>
+                `;
+
+                grid.innerHTML = state.projects.map(p => `
+                    <div class="card" onclick="nav('project', '${p.id}')">
+                        <div class="action-btns">
+                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${p.name}'); if(n){p.name=n; appState.save(); ui.renderDashboard();}">✏️</button>
+                            <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}')">🗑️</button>
+                        </div>
+                        <div class="card-header" style="flex-wrap:wrap; gap:6px;">
+                            <span style="display:flex;align-items:center;gap:6px">🏭 ${p.name}</span>
+                            <span class="badge" style="background:transparent; border:1px solid var(--border)">${p.cells.length} Células</span>
+                        </div>
+                        ${ui.buildCircle(appState.calcProjectProgress(p))}
+                        <div class="card-footer"><span>Visão Macro</span> <span>Acessar ➔</span></div>
+                    </div>
+                `).join('');
+            },
+            renderProject(pid) {
+                const p = appState.getProject(pid);
+                if(!p) return;
+                activeContext.projectId = pid;
+                document.getElementById('project-title').innerText = p.name;
+                const grid = document.getElementById('project-cells-cards');
+                const hub = document.getElementById('project-hub');
+
+                if(p.cells.length === 0) {
+                    hub.style.display = 'none';
+                    grid.innerHTML = `<div class="empty-state">Nenhuma célula neste projeto.</div>`; return;
+                }
+
+                let totRobots = 0, totTasks = 0, totDone = 0;
+                p.cells.forEach(c => {
+                    totRobots += c.robots.length;
+                    c.robots.forEach(r => {
+                        totTasks += r.tasks.length;
+                        totDone += r.tasks.filter(t => t.status === "Concluído").length;
+                    });
+                });
+                let globalPct = totTasks === 0 ? 0 : Math.round((totDone/totTasks)*100);
+
+                hub.style.display = 'block';
+                hub.innerHTML = `
+                    <div style="background:var(--bg-panel); padding:24px; border-radius:16px; border:1px solid var(--border);">
+                        <h3 style="margin-bottom:16px; font-weight:600;">Hub Analítico do Projeto</h3>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:0.9rem;">
+                            <span>Células Config.: <b>${p.cells.length}</b></span>
+                            <span>Robôs Analisados: <b>${totRobots}</b></span>
+                            <span>Tarefas Processadas: <b><span style="color:var(--success)">${totDone}</span> / ${totTasks}</b></span>
+                        </div>
+                        <div style="width:100%; height:12px; background:rgba(255,255,255,0.05); border-radius:6px; overflow:hidden;">
+                            <div style="height:100%; background:var(--accent); width:${globalPct}%; transition:width 1s;"></div>
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); text-align:right; margin-top:8px;">${globalPct}% Progresso Físico do Projeto</div>
+                    </div>
+                `;
+
+                grid.innerHTML = p.cells.map(c => `
+                    <div class="card" onclick="nav('cell', '${p.id}', '${c.id}')">
+                        <div class="action-btns">
+                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${c.name}'); if(n){c.name=n; appState.save(); ui.renderProject('${p.id}');}">✏️</button>
+                            <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteCell('${c.id}')">🗑️</button>
+                        </div>
+                        <div class="card-header" style="flex-wrap:wrap; gap:6px;">
+                            <span style="display:flex;align-items:center;gap:6px">📦 ${c.name}</span>
+                            <span class="badge" style="background:transparent; border:1px solid var(--border)">${c.robots.length} Robôs</span>
+                        </div>
+                        ${ui.buildCircle(appState.calcCellProgress(c))}
+                        <div class="card-footer"><span>Status Global</span> <span>Acessar ➔</span></div>
+                    </div>
+                `).join('');
+            },
+            renderCell(pid, cid) {
+                const c = appState.getCell(pid, cid);
+                if(!c) return;
+                activeContext.projectId = pid; activeContext.cellId = cid;
+                document.getElementById('cell-title').innerText = c.name;
+                document.getElementById('back-to-project-btn').onclick = () => nav('project', pid);
+                
+                const grid = document.getElementById('cell-robots-cards');
+                const hub = document.getElementById('cell-hub');
+
+                if(c.robots.length === 0) {
+                    hub.style.display = 'none';
+                    grid.innerHTML = `<div class="empty-state">Adicione robôs nesta célula.</div>`; return;
+                }
+
+                let totTasks = 0, totDone = 0;
+                c.robots.forEach(r => {
+                    totTasks += r.tasks.length;
+                    totDone += r.tasks.filter(t => t.status === "Concluído").length;
+                });
+                let globalPct = totTasks === 0 ? 0 : Math.round((totDone/totTasks)*100);
+
+                hub.style.display = 'block';
+                hub.innerHTML = `
+                    <div style="background:var(--bg-panel); padding:24px; border-radius:16px; border:1px solid var(--border);">
+                        <h3 style="margin-bottom:16px; font-weight:600;">Hub Analítico da Célula</h3>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:0.9rem;">
+                            <span>Robôs Configurados: <b>${c.robots.length}</b></span>
+                            <span>Tarefas Processadas: <b><span style="color:var(--success)">${totDone}</span> / ${totTasks}</b></span>
+                        </div>
+                        <div style="width:100%; height:12px; background:rgba(255,255,255,0.05); border-radius:6px; overflow:hidden;">
+                            <div style="height:100%; background:var(--accent); width:${globalPct}%; transition:width 1s;"></div>
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); text-align:right; margin-top:8px;">${globalPct}% Progresso Físico da Célula</div>
+                    </div>
+                `;
+
+                grid.innerHTML = c.robots.map(r => `
+                    <div class="card" onclick="nav('robot', '${pid}', '${c.id}', '${r.id}')">
+                        <div class="action-btns">
+                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${r.name}'); if(n){r.name=n; appState.save(); ui.renderCell('${pid}', '${c.id}');}">✏️</button>
+                            <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteRobot('${r.id}')">🗑️</button>
+                        </div>
+                        <div class="card-header" style="flex-wrap:wrap; gap:6px;">
+                            <span style="display:flex;align-items:center;gap:6px">⚙️ ${r.name}</span>
+                            <span class="badge andamento">${r.application || 'Misto / Geral'}</span>
+                        </div>
+                        ${ui.buildCircle(appState.calcRobotProgress(r))}
+                        <div class="card-footer"><span>${r.tasks ? r.tasks.length : 0} Tarefas</span> <span>Editar ➔</span></div>
+                    </div>
+                `).join('');
+            },
+            renderRobot(pid, cid, rid) {
+                const r = appState.getRobot(pid, cid, rid);
+                if(!r) return;
+                activeContext.projectId = pid; activeContext.cellId = cid; activeContext.robotId = rid;
+                document.getElementById('robot-title').innerText = `Robô ${r.name}`;
+                document.getElementById('robot-app-info').innerText = `Aplicação: ${r.application || 'Misto / Geral'}`;
+                document.getElementById('rpct_header').innerText = `${appState.calcRobotProgress(r)}% Progresso`;
+                document.getElementById('back-to-cell-btn').onclick = () => nav('cell', pid, cid);
+                document.getElementById('btn-add-task').onclick = uiActions.addCustomTask;
+                document.getElementById('btn-sync-tasks').onclick = uiActions.forceSyncDefault;
+
+                const tbody = document.getElementById('robot-tasks-table').querySelector('tbody');
+                if(!r.tasks || r.tasks.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted)">Nenhuma tarefa.</td></tr>`; return;
+                }
+                
+                const respOptionsHTML = (state.responsibles || ["Não Atribuído"]).map(res => `<option value="${res}">${res}</option>`).join('');
+                
+                let html = '', curCat = '';
+                r.tasks.forEach(t => {
+                    if (currentTaskFilter === 'P' && t.status === 'Concluído') return;
+                    if (currentTaskFilter === 'C' && t.status !== 'Concluído') return;
+
+                    if(curCat !== t.cat) { curCat = t.cat; html += `<tr class="cat-row"><td colspan="6">${curCat}</td></tr>`; }
+                    const bc = appState.getStatusStyle(t.status);
+                    
+                    let obsWarning = (t.progress > 0 && t.progress < 100 && (!t.obs || t.obs.trim() === '')) 
+                        ? `border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.1); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);` 
+                        : ``;
+                    let obsPlc = obsWarning ? "⚠️ Obrigatório justificar..." : "";
+
+                    let respWarning = (t.progress > 0 && (!t.resp || t.resp === 'Não Atribuído'))
+                        ? `border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.1); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);` 
+                        : ``;
+
+                    html += `<tr id="tr_${t.id}">
+                        <td style="width: 25%">${t.desc}</td>
+                        <td style="width: 15%">
+                            <select class="status-select ${bc}" id="sel_${t.id}" onchange="uiActions.updateTask('${t.id}', 'status', this.value)">
+                                <option value="Pendente" ${t.status==='Pendente'?'selected':''}>Pendente</option>
+                                <option value="Em Andamento" ${t.status==='Em Andamento'?'selected':''}>Em Andamento</option>
+                                <option value="Concluído" ${t.status==='Concluído'?'selected':''}>Concluído</option>
+                                <option value="N/A" ${t.status==='N/A'?'selected':''}>N/A</option>
+                            </select>
+                        </td>
+                        <td style="width: 20%"><div class="slider-cont" style="display:flex; flex-direction:column; gap:8px;">
+                            <span style="font-family:monospace;width:30px; font-weight:700" id="disp_p_${t.id}">${t.progress||0}%</span>
+                            <div style="display:flex; width:100%; gap:8px;">
+                                <button onclick="uiActions.updateTask('${t.id}', 'progress', Math.max(0, (t.progress||0)-10))" style="font-size:1.1rem;background:rgba(255,255,255,0.05);border-radius:4px;width:24px">-</button>
+                                <input type="range" style="width:100%" value="${t.progress||0}" step="5" oninput="document.getElementById('disp_p_'+'${t.id}').innerText = this.value + '%'" onchange="uiActions.updateTask('${t.id}', 'progress', this.value)" title="Arraste para definir">
+                                <button onclick="uiActions.updateTask('${t.id}', 'progress', Math.min(100, (t.progress||0)+10))" style="font-size:1.1rem;background:rgba(255,255,255,0.05);border-radius:4px;width:24px">+</button>
+                            </div>
+                        </div></td>
+                        <td style="width: 20%">
+                            <select style="${respWarning}" onchange="uiActions.updateTask('${t.id}', 'resp', this.value)">
+                                <option value="Não Atribuído" disabled hidden>${t.progress > 0 && (!t.resp || t.resp === 'Não Atribuído') ? '⚠️ Escolha...' : 'Selecione'}</option>
+                                ${respOptionsHTML.replace(`value="${t.resp}"`, `value="${t.resp}" selected`)}
+                            </select>
+                        </td>
+                        <td style="width: 20%"><input type="text" style="${obsWarning}" placeholder="${obsPlc}" value="${t.obs}" onchange="uiActions.updateTask('${t.id}', 'obs', this.value)"></td>
+                        <td><button class="btn-icon" style="color:var(--danger)" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td></tr>`;
+                });
+                tbody.innerHTML = html;
+            },
+            renderSettings() {
+                const tt = document.getElementById('tbl-manage-tasks').querySelector('tbody');
+                const rl = document.getElementById('responsibles-list');
+                
+                if(state.responsibles) {
+                    rl.innerHTML = state.responsibles.map(r => `
+                        <div class="resp-tag">${r} ${r !== 'Não Atribuído' ? `<button onclick="uiActions.deleteResponsible('${r}')" style="color:var(--danger)">X</button>` : ''}</div>
+                    `).join('');
+                }
+
+                if(!state.defaultTasks) return;
+                tt.innerHTML = state.defaultTasks.map(t => {
+                    const filters = t.appFilters || t.apps || [];
+                    const l = (filters.length > 0) ? filters.join(', ') : 'Geral (Todos)';
+                    return `<tr><td style="color:var(--accent); font-weight:bold">${t.cat}</td><td>${t.desc}</td>
+                    <td style="text-align:left"><button class="btn" style="padding:4px 8px; font-size:0.75rem; background:rgba(255,255,255,0.1); border-color:transparent;" onclick="uiActions.editAppFilter('${t.id}')">✏️ ${l}</button></td>
+                    <td style="text-align:right"><button class="btn-icon" style="color:var(--danger)" onclick="uiActions.deleteDefaultTask('${t.id}')">🗑️</button></td></tr>`;
+                }).join('');
+            }
+        };
+
+        // --- ROUTER ---
+        function nav(view, id1, id2, id3) {
+            const views = document.querySelectorAll('.view');
+            views.forEach(v => { v.classList.remove('active'); v.style.animation = 'none'; });
+            document.querySelectorAll('.nav-item').forEach(v => v.classList.remove('active'));
+            
+            setTimeout(() => {
+                const vTarget = document.getElementById(`view-${view}`);
+                vTarget.classList.add('active'); vTarget.style.animation = ''; 
+
+                // Reset activeContext for safety, then set specific IDs
+                activeContext.projectId = null;
+                activeContext.cellId = null;
+                activeContext.robotId = null;
+
+                if (view === 'dashboard') {
+                    document.getElementById('nav-dashboard').classList.add('active');
+                    ui.renderDashboard();
+                } else if (view === 'project') {
+                    document.getElementById('nav-dashboard').classList.add('active');
+                    activeContext.projectId = id1;
+                    ui.renderProject(id1);
+                } else if (view === 'cell') {
+                    document.getElementById('nav-dashboard').classList.add('active');
+                    activeContext.projectId = id1;
+                    activeContext.cellId = id2;
+                    ui.renderCell(id1, id2);
+                } else if (view === 'robot') {
+                    document.getElementById('nav-dashboard').classList.add('active');
+                    activeContext.projectId = id1;
+                    activeContext.cellId = id2;
+                    activeContext.robotId = id3;
+                    ui.renderRobot(id1, id2, id3);
+                } else if (view === 'settings') {
+                    document.getElementById('nav-settings').classList.add('active');
+                    ui.renderSettings();
+                }
+            }, 10);
+        }
+
+        // --- END ROUTER ---
+
+        appState.load();
+        nav('dashboard');
+
+        // --- PWA Service Worker Registration ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('PWA ServiceWorker Ativado Globalmente em:', reg.scope))
+                .catch(err => console.log('Falha na ponte PWA Cache:', err));
+            });
+        }
+    </script>
+</body>
+</html>
