@@ -643,12 +643,16 @@
                 const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
                 const t = r.tasks.find(x => x.id === tid);
                 if(t) {
-                    // Auto-assign logged user as responsible on first interaction
+                    // Auto-assign: usa window.currentUserName como fallback seguro caso auth.currentUser
+                    // ainda esteja null durante a inicialização do Firebase Auth
                     const _liveUser = auth.currentUser;
-                    const _liveName = _liveUser ? (_liveUser.displayName || _liveUser.email) : null;
+                    const _liveName = (_liveUser ? (_liveUser.displayName || _liveUser.email) : null) || window.currentUserName || null;
                     if ((field === 'progress' || field === 'status') && _liveName) {
                         if (!t.resp || t.resp === 'Não Atribuído') {
                             t.resp = _liveName;
+                            // Garante que o nome aparece no dropdown de responsáveis
+                            if (!state.responsibles) state.responsibles = ['Não Atribuído'];
+                            if (!state.responsibles.includes(_liveName)) state.responsibles.push(_liveName);
                         }
                     }
                     if (field === 'status') {
@@ -1126,6 +1130,13 @@
             if (user) {
                 window.currentUserId = user.uid;
                 window.currentUserName = user.displayName || user.email;
+                // Adiciona o usuário logado à lista de responsáveis automaticamente
+                if (window.currentUserName) {
+                    if (!state.responsibles) state.responsibles = ['Não Atribuído'];
+                    if (!state.responsibles.includes(window.currentUserName)) {
+                        state.responsibles.push(window.currentUserName);
+                    }
+                }
                 // BUG-10 FIX: iOS Safari exige visibility+pointerEvents além de display:none
                 const _ls = document.getElementById('login-screen');
                 _ls.style.display = 'none'; _ls.style.visibility = 'hidden'; _ls.style.pointerEvents = 'none';
