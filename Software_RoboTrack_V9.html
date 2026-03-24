@@ -410,6 +410,7 @@
 
     <script>
         const getUUID = () => 'uid_' + Math.random().toString(36).substr(2, 9);
+        const sanitize = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         let activeContext = { projectId: null, cellId: null, robotId: null };
         const ALLOWED_APPS = ["Misto / Geral", "Solda Ponto", "Solda MIG", "Handling", "Sealing", "Outros"];
 
@@ -461,7 +462,7 @@
                 if(!state.logs) state.logs = [];
                 state.logs.unshift({ ts: new Date().toLocaleString('pt-BR'), msg });
                 if(state.logs.length > 200) state.logs.pop();
-                this.save();
+                // save() é chamado pelo chamador (updateTask) — evita double-write e loop de re-render
             },
             load() { /* Firebase onSnapshot handles data loading */ },
             save() {
@@ -535,7 +536,7 @@
             },
             factoryReset() {
                 if(confirm("Você DELETARÁ absolutamente TODAS as células e robôs! Continuar?")) {
-                    window._fbDB.collection('workspaces').doc('vw-main').delete().then(()=>{ state.projects=[]; location.reload(); });
+                    window._fbDB.collection('workspaces').doc('vw-main').delete().then(()=>{ location.reload(); });
                 }
             }
         };
@@ -611,25 +612,28 @@
                 appState.save();
                 ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
             },
-            renameCell(e, cid) {
+            renameCell(e, pid, cid) {
                 e.stopPropagation();
-                const c = appState.getCell(cid);
+                const c = appState.getCell(pid, cid);
+                if(!c) return;
                 const n = prompt("NOVO NOME DA CÉLULA:", c.name);
-                if(n && n !== c.name) { c.name = n; appState.save(); ui.renderDashboard(); }
+                if(n && n !== c.name) { c.name = n; appState.save(); ui.renderProject(pid); }
             },
-            renameRobot(e, cid, rid) {
+            renameRobot(e, pid, cid, rid) {
                 e.stopPropagation();
-                const r = appState.getRobot(cid, rid);
+                const r = appState.getRobot(pid, cid, rid);
+                if(!r) return;
                 const n = prompt("NOVO NOME DO ROBÔ:", r.name);
-                if(n && n !== r.name) { r.name = n; appState.save(); ui.renderCell(cid); }
+                if(n && n !== r.name) { r.name = n; appState.save(); ui.renderCell(pid, cid); }
             },
-            deleteCell(e, cid) {
-                e.stopPropagation();
-                if(confirm("Remover esta CÉLULA inteira?")) { state.cells = state.cells.filter(c => c.id !== cid); appState.save(); ui.renderDashboard(); }
+            deleteProject(pid) {
+                if(confirm("Remover este PROJETO e tudo dentro dele?")) { state.projects = state.projects.filter(p => p.id !== pid); appState.save(); ui.renderDashboard(); }
             },
-            deleteRobot(e, cid, rid) {
-                e.stopPropagation();
-                if(confirm("Remover este ROBÔ e as tarefas dele?")) { const c = appState.getCell(cid); c.robots = c.robots.filter(r => r.id !== rid); appState.save(); ui.renderCell(cid); }
+            deleteCell(pid, cid) {
+                if(confirm("Remover esta CÉLULA inteira?")) { const p = appState.getProject(pid); p.cells = p.cells.filter(c => c.id !== cid); appState.save(); ui.renderProject(pid); }
+            },
+            deleteRobot(pid, cid, rid) {
+                if(confirm("Remover este ROBÔ e as tarefas dele?")) { const c = appState.getCell(pid, cid); c.robots = c.robots.filter(r => r.id !== rid); appState.save(); ui.renderCell(pid, cid); }
             },
             deleteTask(tid) {
                 if(confirm("Deletar esta tarefa do robô?")) { const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); r.tasks = r.tasks.filter(t => t.id !== tid); appState.save(); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
@@ -744,6 +748,14 @@
                  }
                  if(added > 0) { appState.save(); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
                  alert(added + " tarefas foram adicionadas.");
+            },
+            // BUG-04 FIX: lê o progresso atual do state (não da closure stale do template)
+            nudgeProgress(tid, delta) {
+                const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+                const t = r ? r.tasks.find(x => x.id === tid) : null;
+                if(!t) return;
+                const newVal = Math.min(100, Math.max(0, (t.progress || 0) + delta));
+                uiActions.updateTask(tid, 'progress', newVal);
             }
         };
 
@@ -794,11 +806,11 @@
                 grid.innerHTML = state.projects.map(p => `
                     <div class="card" onclick="nav('project', '${p.id}')">
                         <div class="action-btns">
-                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${p.name}'); if(n){p.name=n; appState.save(); ui.renderDashboard();}">✏️</button>
+                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${p.name.replace(/'/g,String.fromCharCode(96))}'); if(n){p.name=n; appState.save(); ui.renderDashboard();}">✏️</button>
                             <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}')">🗑️</button>
                         </div>
                         <div class="card-header" style="flex-wrap:wrap; gap:6px;">
-                            <span style="display:flex;align-items:center;gap:6px">🏭 ${p.name}</span>
+                            <span style="display:flex;align-items:center;gap:6px">🏭 ${sanitize(p.name)}</span>
                             <span class="badge" style="background:transparent; border:1px solid var(--border)">${p.cells.length} Células</span>
                         </div>
                         ${ui.buildCircle(appState.calcProjectProgress(p))}
@@ -848,11 +860,11 @@
                 grid.innerHTML = p.cells.map(c => `
                     <div class="card" onclick="nav('cell', '${p.id}', '${c.id}')">
                         <div class="action-btns">
-                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${c.name}'); if(n){c.name=n; appState.save(); ui.renderProject('${p.id}');}">✏️</button>
-                            <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteCell('${c.id}')">🗑️</button>
+                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${c.name.replace(/'/g,String.fromCharCode(96))}'); if(n){c.name=n; appState.save(); ui.renderProject('${p.id}');}">✏️</button>
+                            <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}')">🗑️</button>
                         </div>
                         <div class="card-header" style="flex-wrap:wrap; gap:6px;">
-                            <span style="display:flex;align-items:center;gap:6px">📦 ${c.name}</span>
+                            <span style="display:flex;align-items:center;gap:6px">📦 ${sanitize(c.name)}</span>
                             <span class="badge" style="background:transparent; border:1px solid var(--border)">${c.robots.length} Robôs</span>
                         </div>
                         ${ui.buildCircle(appState.calcCellProgress(c))}
@@ -900,11 +912,11 @@
                 grid.innerHTML = c.robots.map(r => `
                     <div class="card" onclick="nav('robot', '${pid}', '${c.id}', '${r.id}')">
                         <div class="action-btns">
-                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${r.name}'); if(n){r.name=n; appState.save(); ui.renderCell('${pid}', '${c.id}');}">✏️</button>
-                            <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteRobot('${r.id}')">🗑️</button>
+                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${r.name.replace(/'/g,String.fromCharCode(96))}'); if(n){r.name=n; appState.save(); ui.renderCell('${pid}', '${c.id}');}">✏️</button>
+                            <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}')">🗑️</button>
                         </div>
                         <div class="card-header" style="flex-wrap:wrap; gap:6px;">
-                            <span style="display:flex;align-items:center;gap:6px">⚙️ ${r.name}</span>
+                            <span style="display:flex;align-items:center;gap:6px">⚙️ ${sanitize(r.name)}</span>
                             <span class="badge andamento">${r.application || 'Misto / Geral'}</span>
                         </div>
                         ${ui.buildCircle(appState.calcRobotProgress(r))}
@@ -935,7 +947,7 @@
                     if (currentTaskFilter === 'P' && t.status === 'Concluído') return;
                     if (currentTaskFilter === 'C' && t.status !== 'Concluído') return;
 
-                    if(curCat !== t.cat) { curCat = t.cat; html += `<tr class="cat-row"><td colspan="6">${curCat}</td></tr>`; }
+                    if(curCat !== t.cat) { curCat = t.cat; html += `<tr class="cat-row"><td colspan="6">${sanitize(curCat)}</td></tr>`; }
                     const bc = appState.getStatusStyle(t.status);
                     
                     let obsWarning = (t.progress > 0 && t.progress < 100 && (!t.obs || t.obs.trim() === '')) 
@@ -948,7 +960,7 @@
                         : ``;
 
                     html += `<tr id="tr_${t.id}">
-                        <td style="width: 25%">${t.desc}</td>
+                        <td style="width: 25%">${sanitize(t.desc)}</td>
                         <td style="width: 15%">
                             <select class="status-select ${bc}" id="sel_${t.id}" onchange="uiActions.updateTask('${t.id}', 'status', this.value)">
                                 <option value="Pendente" ${t.status==='Pendente'?'selected':''}>Pendente</option>
@@ -960,9 +972,9 @@
                         <td style="width: 20%"><div class="slider-cont" style="display:flex; flex-direction:column; gap:8px;">
                             <span style="font-family:monospace;width:30px; font-weight:700" id="disp_p_${t.id}">${t.progress||0}%</span>
                             <div style="display:flex; width:100%; gap:8px;">
-                                <button onclick="uiActions.updateTask('${t.id}', 'progress', Math.max(0, (t.progress||0)-10))" style="font-size:1.1rem;background:rgba(255,255,255,0.05);border-radius:4px;width:24px">-</button>
+                                <button onclick="uiActions.nudgeProgress('${t.id}', -10)" style="font-size:1.1rem;background:rgba(255,255,255,0.05);border-radius:4px;width:24px">-</button>
                                 <input type="range" style="width:100%" value="${t.progress||0}" step="5" oninput="document.getElementById('disp_p_'+'${t.id}').innerText = this.value + '%'" onchange="uiActions.updateTask('${t.id}', 'progress', this.value)" title="Arraste para definir">
-                                <button onclick="uiActions.updateTask('${t.id}', 'progress', Math.min(100, (t.progress||0)+10))" style="font-size:1.1rem;background:rgba(255,255,255,0.05);border-radius:4px;width:24px">+</button>
+                                <button onclick="uiActions.nudgeProgress('${t.id}', +10)" style="font-size:1.1rem;background:rgba(255,255,255,0.05);border-radius:4px;width:24px">+</button>
                             </div>
                         </div></td>
                         <td style="width: 20%">
@@ -971,7 +983,7 @@
                                 ${respOptionsHTML.replace(`value="${t.resp}"`, `value="${t.resp}" selected`)}
                             </select>
                         </td>
-                        <td style="width: 20%"><input type="text" style="${obsWarning}" placeholder="${obsPlc}" value="${t.obs}" onchange="uiActions.updateTask('${t.id}', 'obs', this.value)"></td>
+                        <td style="width: 20%"><input type="text" style="${obsWarning}" placeholder="${obsPlc}" value="${sanitize(t.obs)}" onchange="uiActions.updateTask('${t.id}', 'obs', this.value)"></td>
                         <td><button class="btn-icon" style="color:var(--danger)" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td></tr>`;
                 });
                 tbody.innerHTML = html;
@@ -1011,6 +1023,10 @@
                 activeContext.projectId = null;
                 activeContext.cellId = null;
                 activeContext.robotId = null;
+                // BUG-05 FIX: resetar filtro ao navegar entre telas
+                currentTaskFilter = 'T';
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                const _fb = document.querySelector('.filter-btn'); if(_fb) _fb.classList.add('active');
 
                 if (view === 'dashboard') {
                     document.getElementById('nav-dashboard').classList.add('active');
@@ -1110,7 +1126,9 @@
             if (user) {
                 window.currentUserId = user.uid;
                 window.currentUserName = user.displayName || user.email;
-                document.getElementById('login-screen').style.display = 'none';
+                // BUG-10 FIX: iOS Safari exige visibility+pointerEvents além de display:none
+                const _ls = document.getElementById('login-screen');
+                _ls.style.display = 'none'; _ls.style.visibility = 'hidden'; _ls.style.pointerEvents = 'none';
                 const el = document.getElementById('nav-user-email');
                 if (el) el.textContent = '👤 ' + (user.displayName || user.email);
                 _fsUnsub = window._fbDB.collection('workspaces').doc('vw-main').onSnapshot(function(doc) {
@@ -1129,7 +1147,8 @@
                 }, err => console.error('[RoboTrack] Firestore listener error:', err));
             } else {
                 window.currentUserId = null;
-                document.getElementById('login-screen').style.display = 'flex';
+                const _ls2 = document.getElementById('login-screen');
+                _ls2.style.display = 'flex'; _ls2.style.visibility = 'visible'; _ls2.style.pointerEvents = 'auto';
                 if (_fsUnsub) { _fsUnsub(); _fsUnsub = null; }
             }
         });
