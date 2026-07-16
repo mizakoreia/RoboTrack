@@ -171,6 +171,16 @@
             table { min-width: 800px; display: table; }
             .modal-content { width: 92%; padding: 20px; }
             .form-row { flex-direction: column; align-items: stretch; gap: 12px; }
+
+            /* Tabela de tarefas vira cartões empilhados no celular (sem rolagem lateral) */
+            #robot-tasks-table { min-width: 0; }
+            #robot-tasks-table thead { display: none; }
+            #robot-tasks-table tbody, #robot-tasks-table tr, #robot-tasks-table td { display: block; }
+            #robot-tasks-table tr { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; padding: 4px; background: rgba(0,0,0,0.15); }
+            #robot-tasks-table tr.cat-row { background: rgba(59,130,246,0.12) !important; border: none; border-radius: 6px; margin: 14px 0 6px; padding: 8px 12px; }
+            #robot-tasks-table td { border-bottom: none; padding: 8px 12px; width: auto !important; }
+            #robot-tasks-table tr:not(.cat-row) td:first-child { font-weight: 600; font-size: 0.95rem; padding-bottom: 2px; }
+            #robot-tasks-table .slider-cont input[type="range"] { width: 100%; }
         }
     </style>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
