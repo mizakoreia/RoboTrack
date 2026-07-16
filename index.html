@@ -57,6 +57,7 @@
         .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
         .nav-item.active { background: rgba(59, 130, 246, 0.15); color: #fff; border-left: 3px solid var(--accent); }
         .nav-group { margin-top: 16px; padding: 0 16px 8px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.3); font-weight: 700; }
+        #menu-toggle { display: none; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; width: 42px; height: 42px; font-size: 1.4rem; line-height: 1; color: var(--text-main); align-items: center; justify-content: center; }
 
         /* Main Content */
         .main { flex: 1; padding: 32px 40px; overflow-y: auto; position: relative; }
@@ -154,11 +155,12 @@
         @media (max-width: 800px) {
             body { flex-direction: column; overflow-y: auto; overflow-x: hidden; display: block; }
             .sidebar { width: 100%; height: auto; flex-direction: column; padding: 16px; border-right: none; border-bottom: 1px solid var(--border); overflow: visible; z-index: 50; }
-            .brand { padding: 0 0 12px 0; width: 100%; justify-content: center; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 12px; }
-            .nav-list { display: flex; flex-direction: row; gap: 8px; padding: 0; width: 100%; overflow-x: auto; flex-wrap: nowrap; overflow-y: hidden; }
-            .nav-list::-webkit-scrollbar { display: none; }
+            .brand { padding: 0; width: 100%; justify-content: space-between; border-bottom: none; margin-bottom: 0; }
+            #menu-toggle { display: flex; }
+            .nav-list { display: none; }
+            .sidebar.nav-open .nav-list { display: flex; flex-direction: column; gap: 6px; padding: 0; width: 100%; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
             .nav-group { display: none; }
-            .nav-item { padding: 8px 16px; margin: 0; border-radius: 20px; font-size: 0.8rem; border-left: none !important; white-space: nowrap; }
+            .nav-item { padding: 12px 16px; margin: 0; border-radius: 8px; font-size: 0.9rem; border-left: none !important; white-space: nowrap; width: 100%; justify-content: flex-start; }
             .nav-item.active { background: rgba(59, 130, 246, 0.2); }
             
             .main { padding: 20px 16px; width: 100%; overflow: visible; }
@@ -171,7 +173,28 @@
             table { min-width: 800px; display: table; }
             .modal-content { width: 92%; padding: 20px; }
             .form-row { flex-direction: column; align-items: stretch; gap: 12px; }
+
+            /* Tabela de tarefas vira cartões empilhados no celular (sem rolagem lateral) */
+            #robot-tasks-table { min-width: 0; }
+            #robot-tasks-table thead { display: none; }
+            #robot-tasks-table tbody, #robot-tasks-table tr, #robot-tasks-table td { display: block; }
+            #robot-tasks-table tr { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; padding: 4px; background: rgba(0,0,0,0.15); }
+            #robot-tasks-table tr.cat-row { background: rgba(59,130,246,0.12) !important; border: none; border-radius: 6px; margin: 14px 0 6px; padding: 8px 12px; }
+            #robot-tasks-table td { border-bottom: none; padding: 8px 12px; width: auto !important; }
+            #robot-tasks-table tr:not(.cat-row) td:first-child { font-weight: 600; font-size: 0.95rem; padding-bottom: 2px; }
+            #robot-tasks-table .slider-cont input[type="range"] { width: 100%; }
         }
+
+        /* Permissão "somente leitura": esconde botões de edição e trava os controles */
+        body[data-role="view"] .btn-primary,
+        body[data-role="view"] .btn-danger,
+        body[data-role="view"] .btn-icon,
+        body[data-role="view"] .action-btns,
+        body[data-role="view"] #btn-add-task,
+        body[data-role="view"] #btn-sync-tasks,
+        body[data-role="view"] .edit-only { display: none !important; }
+        body[data-role="view"] #robot-tasks-table select,
+        body[data-role="view"] #robot-tasks-table input { pointer-events: none !important; opacity: 0.65; }
     </style>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -207,14 +230,20 @@
 
     <aside class="sidebar">
         <div class="brand">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg>
-            <div style="display: flex; flex-direction: column;">
-                <span>RoboTrack</span>
-                <span style="font-size: 0.65rem; color: var(--text-muted); -webkit-text-fill-color: var(--text-muted); background: none; text-transform: uppercase; letter-spacing: 0.05em; margin-top: -2px; font-weight: 500;">By Miza</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg>
+                <div style="display: flex; flex-direction: column;">
+                    <span>RoboTrack</span>
+                    <span style="font-size: 0.65rem; color: var(--text-muted); -webkit-text-fill-color: var(--text-muted); background: none; text-transform: uppercase; letter-spacing: 0.05em; margin-top: -2px; font-weight: 500;">By Miza</span>
+                </div>
             </div>
+            <button id="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('nav-open')" aria-label="Abrir menu">☰</button>
         </div>
         
-        <ul class="nav-list" id="nav-list">
+        <ul class="nav-list" id="nav-list" onclick="if(event.target.closest('.nav-item'))this.closest('.sidebar').classList.remove('nav-open')">
+            <li class="nav-item" id="nav-user-email" style="font-size:0.75rem;color:rgba(255,255,255,0.35);cursor:default;pointer-events:none;">—</li>
+            <li class="nav-item" onclick="uiActions.openInviteModal()">➕ Adicionar usuário</li>
+            <li class="nav-item" onclick="firebase.auth().signOut()" style="color:#fca5a5;font-weight:600;">🚪 Sair</li>
             <li class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
                 Visão Geral
@@ -241,9 +270,6 @@
             <div style="padding: 0 16px; margin-top: 8px;">
                 <div id="save-indicator" style="font-size:0.7rem;color:var(--success);opacity:0;transition:opacity 0.4s;height:18px;">✅ Salvo</div>
             </div>
-            <div class="nav-group" style="margin-top: 8px;">Conta</div>
-            <li class="nav-item" id="nav-user-email" style="font-size:0.75rem;color:rgba(255,255,255,0.35);cursor:default;pointer-events:none;">—</li>
-            <li class="nav-item" onclick="firebase.auth().signOut()" style="color:#fca5a5;">🚪 Sair</li>
         </ul>
     </aside>
 
@@ -251,8 +277,18 @@
         <!-- DASHBOARD VIEW -->
         <div id="view-dashboard" class="view active">
             <div class="header">
-                <div><h1 class="title">Visão Geral</h1><p class="subtitle">Lista de todos os projetos cadastrados.</p></div>
-                <button class="btn btn-primary" onclick="uiActions.addProject()">+ Novo Projeto</button>
+                <div>
+                    <h1 class="title">Visão Geral</h1>
+                    <p class="subtitle">Lista de todos os projetos cadastrados.</p>
+                    <div style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <div id="ws-selector-wrap" style="display:none; align-items:center; gap:8px;">
+                            <span style="font-size:0.75rem; color:var(--text-muted);">Workspace:</span>
+                            <select id="ws-selector" onchange="switchWorkspace(this.value)" style="width:auto; min-width:170px; margin:0; font-size:0.85rem;"></select>
+                        </div>
+                        <span id="ws-role-badge" style="display:none; font-size:0.7rem; font-weight:600; padding:3px 10px; border-radius:12px;"></span>
+                    </div>
+                </div>
+                <button class="btn btn-primary edit-only" onclick="uiActions.addProject()">+ Novo Projeto</button>
             </div>
             <div id="dashboard-hub" style="margin-bottom:24px; display:none;"></div>
             <div class="grid" id="dashboard-cards"></div>
@@ -408,6 +444,43 @@
         </div>
     </div>
 
+    <!-- MODAL ADICIONAR USUÁRIO / CONVITE -->
+    <div class="modal-overlay" id="modal-invite">
+        <div class="modal-content" style="width:460px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h2 class="modal-title" style="margin:0;">Adicionar usuário</h2>
+                <button onclick="uiActions.closeInviteModal()" style="color:var(--text-muted); font-size:1.5rem;">&times;</button>
+            </div>
+
+            <div id="invite-form-wrap">
+                <p class="modal-desc">Convide alguém para o <b>seu</b> workspace pelo e-mail e defina a permissão.</p>
+                <label class="form-label">E-mail do convidado</label>
+                <input type="email" id="inp-invite-email" placeholder="pessoa@email.com">
+                <label class="form-label" style="margin-top:12px">Permissão</label>
+                <select id="sel-invite-role" style="margin-bottom:20px">
+                    <option value="view">Somente ver</option>
+                    <option value="edit">Ver e editar</option>
+                </select>
+                <div style="display:flex; justify-content:flex-end; gap:12px">
+                    <button class="btn" onclick="uiActions.closeInviteModal()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="uiActions.createInvite()">Gerar convite</button>
+                </div>
+            </div>
+
+            <div id="invite-link-wrap" style="display:none;">
+                <p class="modal-desc">Convite criado para <b id="invite-link-email"></b> (<span id="invite-link-role"></span>). Envie este link — ele é único e expira ao ser usado:</p>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="text" id="invite-link-input" readonly style="flex:1; font-size:0.8rem;">
+                    <button class="btn btn-primary" id="btn-copy-link" onclick="uiActions.copyInviteLink()" style="white-space:nowrap;">Copiar</button>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px">
+                    <button class="btn" onclick="uiActions.closeInviteModal()">Fechar</button>
+                    <button class="btn btn-primary" onclick="uiActions.openInviteModal()">Novo convite</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const getUUID = () => 'uid_' + Math.random().toString(36).substr(2, 9);
         const sanitize = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -471,9 +544,13 @@
                 if (!_db || !_auth) { console.warn('[RoboTrack] Firebase ainda não inicializado.'); return; }
                 const _user = _auth.currentUser;
                 if (!_user) { console.warn('[RoboTrack] save() ignorado: nenhum usuário logado.'); return; }
+                if (!canEdit()) { console.warn('[RoboTrack] save() ignorado: permissão apenas de leitura.'); return; }
+                const _ws = window.currentWsId || _user.uid;
                 const _indicator = document.getElementById('save-indicator');
                 if (_indicator) { _indicator.textContent = '⏳ Salvando...'; _indicator.style.opacity = '1'; }
-                _db.collection('workspaces').doc('vw-main').set({
+                _db.collection('workspaces').doc(_ws).set({
+                    ownerUid: _ws,
+                    name: state.wsName || 'Meu Workspace',
                     projects: state.projects,
                     defaultTasks: state.defaultTasks,
                     responsibles: state.responsibles,
@@ -535,8 +612,9 @@
                 const a = document.createElement('a'); a.download = "RoboTrack_Database.json"; a.href = dataStr; a.click();
             },
             factoryReset() {
-                if(confirm("Você DELETARÁ absolutamente TODAS as células e robôs! Continuar?")) {
-                    window._fbDB.collection('workspaces').doc('vw-main').delete().then(()=>{ location.reload(); });
+                if (!isOwner()) { alert('Apenas o dono do workspace pode apagá-lo.'); return; }
+                if(confirm("Você DELETARÁ absolutamente TODAS as células e robôs deste workspace! Continuar?")) {
+                    window._fbDB.collection('workspaces').doc(window._fbAuth.currentUser.uid).delete().then(()=>{ location.reload(); });
                 }
             }
         };
@@ -555,6 +633,46 @@
                 if(!state.logs || state.logs.length === 0) list.innerHTML = "<i>Nenhum registro.</i>";
                 else list.innerHTML = state.logs.map(l => `<div style="background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:6px; font-size:0.8rem; display:flex; gap:12px;"><span style="color:var(--accent); white-space:nowrap;">[${l.ts}]</span><span>${l.msg}</span></div>`).join('');
                 document.getElementById('modal-logs').classList.add('active');
+            },
+            openInviteModal() {
+                document.getElementById('inp-invite-email').value = '';
+                document.getElementById('sel-invite-role').value = 'view';
+                document.getElementById('invite-link-wrap').style.display = 'none';
+                document.getElementById('invite-form-wrap').style.display = 'block';
+                document.getElementById('modal-invite').classList.add('active');
+            },
+            closeInviteModal() { document.getElementById('modal-invite').classList.remove('active'); },
+            async createInvite() {
+                const emailRaw = document.getElementById('inp-invite-email').value.trim();
+                const role = document.getElementById('sel-invite-role').value; // 'view' | 'edit'
+                if (!emailRaw || !/.+@.+\..+/.test(emailRaw)) return alert('Digite um e-mail válido.');
+                const _db = window._fbDB;
+                const _user = window._fbAuth && window._fbAuth.currentUser;
+                if (!_user) return alert('Faça login novamente.');
+                const email = emailRaw.toLowerCase();
+                const token = genToken();
+                const wsName = state.wsName || ('Workspace de ' + (_user.displayName || (_user.email||'').split('@')[0]));
+                try {
+                    await _db.collection('invites').doc(token).set({
+                        email, role, wsId: _user.uid, wsName,
+                        createdBy: _user.uid, createdByEmail: (_user.email||'').toLowerCase(),
+                        used: false, createdAt: new Date().toISOString()
+                    });
+                    const link = location.origin + location.pathname + '?convite=' + token;
+                    document.getElementById('invite-link-input').value = link;
+                    document.getElementById('invite-link-role').textContent = role === 'edit' ? 'Ver e editar' : 'Somente ver';
+                    document.getElementById('invite-link-email').textContent = email;
+                    document.getElementById('invite-form-wrap').style.display = 'none';
+                    document.getElementById('invite-link-wrap').style.display = 'block';
+                } catch(e) {
+                    alert('Erro ao criar convite: ' + (e && e.message) + '\n\nVerifique se você publicou as regras do Firestore para "invites".');
+                }
+            },
+            copyInviteLink() {
+                const inp = document.getElementById('invite-link-input');
+                inp.select(); inp.setSelectionRange(0, 99999);
+                try { navigator.clipboard.writeText(inp.value); } catch(e){ try { document.execCommand('copy'); } catch(_){} }
+                const b = document.getElementById('btn-copy-link'); const t = b.textContent; b.textContent = '✅ Copiado!'; setTimeout(()=>{ b.textContent = t; }, 1500);
             },
             addProject() {
                 const name = prompt("Digite o nome do Novo Projeto\nEx: Novo Projeto");
@@ -640,6 +758,7 @@
             },
 
             updateTask(tid, field, val) {
+                if (!canEdit()) { ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); return; }
                 const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
                 const t = r.tasks.find(x => x.id === tid);
                 if(t) {
@@ -1083,7 +1202,110 @@
         window._fbDB = db;
         window._fbAuth = auth;
         window.currentUserId = null;
+        window.currentWsId = null;      // workspace atualmente aberto (doc id = uid do dono)
+        window.currentRole = 'owner';   // 'owner' | 'edit' | 'view'
+        window.myWorkspaces = [];        // [{ id, name, role }]
         let _fsUnsub = null;
+        // Guarda o token do convite (se veio na URL) antes do fluxo de login.
+        try { const _t = new URLSearchParams(location.search).get('convite'); if (_t) sessionStorage.setItem('rt_invite', _t); } catch(e){}
+
+        function canEdit(){ return window.currentRole === 'owner' || window.currentRole === 'edit'; }
+        function isOwner(){ return window.currentRole === 'owner'; }
+        function requireEdit(){ if(!canEdit()){ alert('Você tem permissão apenas de visualização neste workspace.'); return false; } return true; }
+        function genToken(){ try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g,''); } catch(e){} return (getUUID()+getUUID()+Date.now().toString(36)).replace(/[^a-z0-9]/gi,''); }
+        function _applyRole(){ document.body.dataset.role = window.currentRole; }
+
+        function subscribeWorkspace(wsId, role) {
+            if (_fsUnsub) { _fsUnsub(); _fsUnsub = null; }
+            window.currentWsId = wsId;
+            window.currentRole = role || 'view';
+            _applyRole();
+            // Zera estado ao (re)abrir um workspace, evitando vazar dados do anterior.
+            state.projects = []; state.logs = []; state.defaultTasks = [...defaultTemplates]; state.responsibles = ['Não Atribuído'];
+            if (window.currentUserName && !state.responsibles.includes(window.currentUserName)) state.responsibles.push(window.currentUserName);
+            _fsUnsub = window._fbDB.collection('workspaces').doc(wsId).onSnapshot(function(doc) {
+                if (doc.exists) {
+                    const d = doc.data();
+                    if (Array.isArray(d.projects)) state.projects = d.projects;
+                    if (Array.isArray(d.defaultTasks) && d.defaultTasks.length > 0) state.defaultTasks = d.defaultTasks;
+                    if (Array.isArray(d.responsibles) && d.responsibles.length > 0) state.responsibles = d.responsibles;
+                    if (Array.isArray(d.logs)) state.logs = d.logs;
+                    if (d.name) state.wsName = d.name;
+                } else {
+                    state.projects = []; state.logs = [];
+                }
+                _reRender();
+            }, err => console.error('[RoboTrack] Firestore listener error:', err));
+        }
+
+        function switchWorkspace(wsId) {
+            const w = (window.myWorkspaces || []).find(x => x.id === wsId);
+            if (!w) return;
+            subscribeWorkspace(w.id, w.role);
+            renderWorkspaceSelector();
+        }
+
+        function renderWorkspaceSelector() {
+            const sel = document.getElementById('ws-selector');
+            if (sel) {
+                const list = window.myWorkspaces || [];
+                sel.innerHTML = list.map(w => `<option value="${w.id}" ${w.id===window.currentWsId?'selected':''}>${sanitize(w.name)}${w.role==='owner'?' (meu)':''}</option>`).join('');
+                const wrap = document.getElementById('ws-selector-wrap');
+                if (wrap) wrap.style.display = list.length > 1 ? 'flex' : 'none';
+            }
+            const badge = document.getElementById('ws-role-badge');
+            if (badge) {
+                const r = window.currentRole;
+                badge.style.display = 'inline-block';
+                if (r === 'view') { badge.textContent = '👁️ Somente leitura'; badge.style.background = 'rgba(245,158,11,0.15)'; badge.style.color = 'var(--warning)'; }
+                else if (r === 'edit') { badge.textContent = '✏️ Editor'; badge.style.background = 'rgba(59,130,246,0.15)'; badge.style.color = 'var(--accent)'; }
+                else { badge.textContent = '★ Dono'; badge.style.background = 'rgba(16,185,129,0.15)'; badge.style.color = 'var(--success)'; }
+            }
+        }
+
+        async function _loadMyWorkspaces(user) {
+            const uref = window._fbDB.collection('users').doc(user.uid);
+            let snap = null;
+            try { snap = await uref.get(); } catch(e){ console.warn('users get falhou', e && e.message); }
+            let list = (snap && snap.exists && Array.isArray(snap.data().workspaces)) ? snap.data().workspaces.slice() : [];
+            if (!list.find(w => w.id === user.uid)) {
+                const ownName = 'Workspace de ' + (user.displayName || (user.email||'usuário').split('@')[0]);
+                list.unshift({ id: user.uid, name: ownName, role: 'owner' });
+                try { await uref.set({ email: (user.email||'').toLowerCase(), workspaces: list }, { merge: true }); } catch(e){ console.warn('seed users falhou', e && e.message); }
+            }
+            window.myWorkspaces = list;
+        }
+
+        async function _consumePendingInvite(user) {
+            const token = sessionStorage.getItem('rt_invite') || new URLSearchParams(location.search).get('convite');
+            if (!token) return null;
+            sessionStorage.removeItem('rt_invite');
+            try {
+                const iref = window._fbDB.collection('invites').doc(token);
+                const isnap = await iref.get();
+                if (!isnap.exists) { alert('Convite inválido ou já utilizado.'); return null; }
+                const inv = isnap.data();
+                if (inv.used) { alert('Este convite já foi utilizado.'); return null; }
+                const myEmail = (user.email||'').toLowerCase();
+                if ((inv.email||'').toLowerCase() !== myEmail) { alert('Este convite é para outro e-mail: ' + inv.email); return null; }
+                // Cria a associação e marca o convite como usado (batch = atômico).
+                const batch = window._fbDB.batch();
+                const mref = window._fbDB.collection('workspaces').doc(inv.wsId).collection('members').doc(user.uid);
+                batch.set(mref, { role: inv.role, email: myEmail, inviteToken: token });
+                batch.update(iref, { used: true, usedAt: new Date().toISOString(), usedBy: user.uid });
+                await batch.commit();
+                const entry = { id: inv.wsId, name: inv.wsName || 'Workspace convidado', role: inv.role };
+                window.myWorkspaces = (window.myWorkspaces || []).filter(w => w.id !== inv.wsId);
+                window.myWorkspaces.push(entry);
+                try { await window._fbDB.collection('users').doc(user.uid).set({ email: myEmail, workspaces: window.myWorkspaces }, { merge: true }); } catch(e){}
+                alert('Você entrou no workspace "' + entry.name + '" como ' + (inv.role === 'edit' ? 'Editor' : 'Somente leitura') + '.');
+                return entry;
+            } catch(e) {
+                console.error('Erro ao aceitar convite', e);
+                alert('Não foi possível aceitar o convite: ' + (e && e.message));
+                return null;
+            }
+        }
 
         function authLogin() {
             const e = document.getElementById('auth-email').value.trim();
@@ -1130,36 +1352,21 @@
             else if (id === 'robot' && activeContext.robotId) ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
             else if (id === 'settings') ui.renderSettings();
         }
-        auth.onAuthStateChanged(function(user) {
+        auth.onAuthStateChanged(async function(user) {
             if (user) {
                 window.currentUserId = user.uid;
                 window.currentUserName = user.displayName || user.email;
-                // Adiciona o usuário logado à lista de responsáveis automaticamente
-                if (window.currentUserName) {
-                    if (!state.responsibles) state.responsibles = ['Não Atribuído'];
-                    if (!state.responsibles.includes(window.currentUserName)) {
-                        state.responsibles.push(window.currentUserName);
-                    }
-                }
                 // BUG-10 FIX: iOS Safari exige visibility+pointerEvents além de display:none
                 const _ls = document.getElementById('login-screen');
                 _ls.style.display = 'none'; _ls.style.visibility = 'hidden'; _ls.style.pointerEvents = 'none';
                 const el = document.getElementById('nav-user-email');
                 if (el) el.textContent = '👤 ' + (user.displayName || user.email);
-                _fsUnsub = window._fbDB.collection('workspaces').doc('vw-main').onSnapshot(function(doc) {
-                    if (doc.exists) {
-                        const d = doc.data();
-                        // Only update if data is non-empty to avoid overwriting local changes 
-                        if (Array.isArray(d.projects)) state.projects = d.projects;
-                        if (Array.isArray(d.defaultTasks) && d.defaultTasks.length > 0) state.defaultTasks = d.defaultTasks;
-                        if (Array.isArray(d.responsibles) && d.responsibles.length > 0) state.responsibles = d.responsibles;
-                        if (Array.isArray(d.logs)) state.logs = d.logs;
-                        console.log('[RoboTrack] Firestore sync recebido:', state.projects.length, 'projetos');
-                    } else {
-                        console.log('[RoboTrack] Documento vazio no Firestore — primeiro acesso ou dados deletados.');
-                    }
-                    _reRender();
-                }, err => console.error('[RoboTrack] Firestore listener error:', err));
+                await _loadMyWorkspaces(user);
+                const invited = await _consumePendingInvite(user);
+                // Workspace inicial: o recém-convidado; senão o próprio; senão o primeiro.
+                const start = invited || window.myWorkspaces.find(w => w.id === user.uid) || window.myWorkspaces[0];
+                renderWorkspaceSelector();
+                subscribeWorkspace(start.id, start.role);
             } else {
                 window.currentUserId = null;
                 const _ls2 = document.getElementById('login-screen');
