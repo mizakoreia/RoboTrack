@@ -184,6 +184,17 @@
             #robot-tasks-table tr:not(.cat-row) td:first-child { font-weight: 600; font-size: 0.95rem; padding-bottom: 2px; }
             #robot-tasks-table .slider-cont input[type="range"] { width: 100%; }
         }
+
+        /* Permissão "somente leitura": esconde botões de edição e trava os controles */
+        body[data-role="view"] .btn-primary,
+        body[data-role="view"] .btn-danger,
+        body[data-role="view"] .btn-icon,
+        body[data-role="view"] .action-btns,
+        body[data-role="view"] #btn-add-task,
+        body[data-role="view"] #btn-sync-tasks,
+        body[data-role="view"] .edit-only { display: none !important; }
+        body[data-role="view"] #robot-tasks-table select,
+        body[data-role="view"] #robot-tasks-table input { pointer-events: none !important; opacity: 0.65; }
     </style>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -231,6 +242,7 @@
         
         <ul class="nav-list" id="nav-list" onclick="if(event.target.closest('.nav-item'))this.closest('.sidebar').classList.remove('nav-open')">
             <li class="nav-item" id="nav-user-email" style="font-size:0.75rem;color:rgba(255,255,255,0.35);cursor:default;pointer-events:none;">—</li>
+            <li class="nav-item" onclick="uiActions.openInviteModal()">➕ Adicionar usuário</li>
             <li class="nav-item" onclick="firebase.auth().signOut()" style="color:#fca5a5;font-weight:600;">🚪 Sair</li>
             <li class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
@@ -429,6 +441,43 @@
             </div>
             <p class="modal-desc" style="margin-bottom:16px;">Diário de bordo gerado automaticamente pelo sistema.</p>
             <div id="logs-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+    </div>
+
+    <!-- MODAL ADICIONAR USUÁRIO / CONVITE -->
+    <div class="modal-overlay" id="modal-invite">
+        <div class="modal-content" style="width:460px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h2 class="modal-title" style="margin:0;">Adicionar usuário</h2>
+                <button onclick="uiActions.closeInviteModal()" style="color:var(--text-muted); font-size:1.5rem;">&times;</button>
+            </div>
+
+            <div id="invite-form-wrap">
+                <p class="modal-desc">Convide alguém para o <b>seu</b> workspace pelo e-mail e defina a permissão.</p>
+                <label class="form-label">E-mail do convidado</label>
+                <input type="email" id="inp-invite-email" placeholder="pessoa@email.com">
+                <label class="form-label" style="margin-top:12px">Permissão</label>
+                <select id="sel-invite-role" style="margin-bottom:20px">
+                    <option value="view">Somente ver</option>
+                    <option value="edit">Ver e editar</option>
+                </select>
+                <div style="display:flex; justify-content:flex-end; gap:12px">
+                    <button class="btn" onclick="uiActions.closeInviteModal()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="uiActions.createInvite()">Gerar convite</button>
+                </div>
+            </div>
+
+            <div id="invite-link-wrap" style="display:none;">
+                <p class="modal-desc">Convite criado para <b id="invite-link-email"></b> (<span id="invite-link-role"></span>). Envie este link — ele é único e expira ao ser usado:</p>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="text" id="invite-link-input" readonly style="flex:1; font-size:0.8rem;">
+                    <button class="btn btn-primary" id="btn-copy-link" onclick="uiActions.copyInviteLink()" style="white-space:nowrap;">Copiar</button>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px">
+                    <button class="btn" onclick="uiActions.closeInviteModal()">Fechar</button>
+                    <button class="btn btn-primary" onclick="uiActions.openInviteModal()">Novo convite</button>
+                </div>
+            </div>
         </div>
     </div>
 
