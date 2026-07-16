@@ -473,7 +473,7 @@
                 if (!_user) { console.warn('[RoboTrack] save() ignorado: nenhum usuário logado.'); return; }
                 const _indicator = document.getElementById('save-indicator');
                 if (_indicator) { _indicator.textContent = '⏳ Salvando...'; _indicator.style.opacity = '1'; }
-                _db.collection('workspaces').doc('vw-main').set({
+                _db.collection('workspaces').doc(_user.uid).set({
                     projects: state.projects,
                     defaultTasks: state.defaultTasks,
                     responsibles: state.responsibles,
@@ -536,7 +536,7 @@
             },
             factoryReset() {
                 if(confirm("Você DELETARÁ absolutamente TODAS as células e robôs! Continuar?")) {
-                    window._fbDB.collection('workspaces').doc('vw-main').delete().then(()=>{ location.reload(); });
+                    window._fbDB.collection('workspaces').doc(window._fbAuth.currentUser.uid).delete().then(()=>{ location.reload(); });
                 }
             }
         };
@@ -1134,29 +1134,34 @@
             if (user) {
                 window.currentUserId = user.uid;
                 window.currentUserName = user.displayName || user.email;
+                // Workspace é POR USUÁRIO (doc = uid). Zera o estado em memória ao logar
+                // para não vazar dados de um usuário anterior nesta mesma sessão de navegador.
+                state.projects = [];
+                state.logs = [];
+                state.defaultTasks = [...defaultTemplates];
+                state.responsibles = ['Não Atribuído'];
                 // Adiciona o usuário logado à lista de responsáveis automaticamente
-                if (window.currentUserName) {
-                    if (!state.responsibles) state.responsibles = ['Não Atribuído'];
-                    if (!state.responsibles.includes(window.currentUserName)) {
-                        state.responsibles.push(window.currentUserName);
-                    }
+                if (window.currentUserName && !state.responsibles.includes(window.currentUserName)) {
+                    state.responsibles.push(window.currentUserName);
                 }
                 // BUG-10 FIX: iOS Safari exige visibility+pointerEvents além de display:none
                 const _ls = document.getElementById('login-screen');
                 _ls.style.display = 'none'; _ls.style.visibility = 'hidden'; _ls.style.pointerEvents = 'none';
                 const el = document.getElementById('nav-user-email');
                 if (el) el.textContent = '👤 ' + (user.displayName || user.email);
-                _fsUnsub = window._fbDB.collection('workspaces').doc('vw-main').onSnapshot(function(doc) {
+                _fsUnsub = window._fbDB.collection('workspaces').doc(user.uid).onSnapshot(function(doc) {
                     if (doc.exists) {
                         const d = doc.data();
-                        // Only update if data is non-empty to avoid overwriting local changes 
                         if (Array.isArray(d.projects)) state.projects = d.projects;
                         if (Array.isArray(d.defaultTasks) && d.defaultTasks.length > 0) state.defaultTasks = d.defaultTasks;
                         if (Array.isArray(d.responsibles) && d.responsibles.length > 0) state.responsibles = d.responsibles;
                         if (Array.isArray(d.logs)) state.logs = d.logs;
                         console.log('[RoboTrack] Firestore sync recebido:', state.projects.length, 'projetos');
                     } else {
-                        console.log('[RoboTrack] Documento vazio no Firestore — primeiro acesso ou dados deletados.');
+                        // Workspace novo/vazio deste usuário: garante estado limpo.
+                        state.projects = [];
+                        state.logs = [];
+                        console.log('[RoboTrack] Workspace vazio — primeiro acesso deste usuário.');
                     }
                     _reRender();
                 }, err => console.error('[RoboTrack] Firestore listener error:', err));
