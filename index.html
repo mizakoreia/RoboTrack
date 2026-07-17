@@ -532,43 +532,55 @@
         let currentTaskFilter = 'T'; // T: Todos, P: Pendentes, C: Concluídos
 
         const appState = {
+            // S-09: log append-only em subcoleção própria (protegida por rules: sem update/delete).
             addLog(msg) {
-                if(!state.logs) state.logs = [];
-                state.logs.unshift({ ts: new Date().toLocaleString('pt-BR'), msg });
-                if(state.logs.length > 200) state.logs.pop();
-                // save() é chamado pelo chamador (updateTask) — evita double-write e loop de re-render
+                const wref = this._wsRef(); if (!wref) return;
+                let ts; try { ts = firebase.firestore.FieldValue.serverTimestamp(); } catch(e){ ts = null; }
+                wref.collection('logs').add({
+                    msg: msg,
+                    ts: ts,
+                    tsLocal: new Date().toLocaleString('pt-BR'),
+                    by: window.currentUserId || null,
+                    byName: window.currentUserName || null
+                }).catch(e => console.error('[RoboTrack] addLog', e && e.message));
             },
             load() { /* Firebase onSnapshot handles data loading */ },
-            save() {
-                const _db = window._fbDB;
-                const _auth = window._fbAuth;
-                if (!_db || !_auth) { console.warn('[RoboTrack] Firebase ainda não inicializado.'); return; }
-                const _user = _auth.currentUser;
-                if (!_user) { console.warn('[RoboTrack] save() ignorado: nenhum usuário logado.'); return; }
-                if (!canEdit()) { console.warn('[RoboTrack] save() ignorado: permissão apenas de leitura.'); return; }
-                const _ws = window.currentWsId || _user.uid;
-                const _indicator = document.getElementById('save-indicator');
-                if (_indicator) { _indicator.textContent = '⏳ Salvando...'; _indicator.style.opacity = '1'; }
-                _db.collection('workspaces').doc(_ws).set({
-                    ownerUid: _ws,
-                    name: state.wsName || 'Meu Workspace',
-                    projects: state.projects,
-                    defaultTasks: state.defaultTasks,
-                    responsibles: state.responsibles,
-                    logs: state.logs,
-                    _updatedBy: _user.displayName || _user.email,
-                    _updatedAt: new Date().toISOString()
-                }, { merge: true })
-                .then(() => {
-                    console.log('[RoboTrack] ✅ Dados salvos no Firestore por', _user.email);
-                    if (_indicator) { _indicator.textContent = '✅ Salvo'; setTimeout(() => { _indicator.style.opacity = '0'; }, 2000); }
-                })
-                .catch(e => {
-                    console.error('[RoboTrack] ❌ ERRO AO SALVAR:', e.code, e.message);
-                    alert('ERRO ao salvar: ' + e.message + '\n\nVerifique as regras do Firestore no console do Firebase.');
-                    if (_indicator) { _indicator.textContent = '❌ Erro!'; _indicator.style.opacity = '1'; }
-                });
+            // --- Persistência granular (S-04/S-05): 1 documento por projeto ---
+            _wsRef() {
+                const _db = window._fbDB, _auth = window._fbAuth;
+                if (!_db || !_auth || !_auth.currentUser) { console.warn('[RoboTrack] Firebase/usuário não pronto.'); return null; }
+                if (!canEdit()) { console.warn('[RoboTrack] gravação ignorada: somente leitura.'); return null; }
+                return _db.collection('workspaces').doc(window.currentWsId || _auth.currentUser.uid);
             },
+            _ind(txt, keep) { const i = document.getElementById('save-indicator'); if (!i) return; i.textContent = txt; i.style.opacity = '1'; if (!keep) setTimeout(() => { i.style.opacity = '0'; }, 2000); },
+            _saveErr(e) { console.error('[RoboTrack] ❌ ERRO AO SALVAR:', e && e.code, e && e.message); alert('ERRO ao salvar: ' + (e && e.message) + '\n\nVerifique as regras do Firestore.'); this._ind('❌ Erro!', true); },
+            // Grava UM projeto (documento próprio) — concorrência isolada por projeto.
+            saveProject(pid) {
+                const wref = this._wsRef(); if (!wref) return;
+                const p = this.getProject(pid); if (!p) return;
+                if (p._ord == null) p._ord = Date.now();
+                this._ind('⏳ Salvando...', true);
+                wref.collection('projects').doc(pid).set({
+                    name: p.name, cells: p.cells || [], _ord: p._ord,
+                    _updatedBy: window.currentUserName || '', _updatedAt: new Date().toISOString()
+                }).then(() => this._ind('✅ Salvo')).catch(e => this._saveErr(e));
+            },
+            deleteProjectDoc(pid) {
+                const wref = this._wsRef(); if (!wref) return;
+                wref.collection('projects').doc(pid).delete().catch(e => this._saveErr(e));
+            },
+            // Grava configurações do workspace (nome, templates, responsáveis, logs).
+            saveSettings() {
+                const wref = this._wsRef(); if (!wref) return;
+                this._ind('⏳ Salvando...', true);
+                wref.set({
+                    ownerUid: window.currentWsId || (window._fbAuth.currentUser && window._fbAuth.currentUser.uid),
+                    name: state.wsName || 'Meu Workspace',
+                    defaultTasks: state.defaultTasks, responsibles: state.responsibles,
+                    _updatedAt: new Date().toISOString()
+                }, { merge: true }).then(() => this._ind('✅ Salvo')).catch(e => this._saveErr(e));
+            },
+            save() { this.saveSettings(); }, // compat: chamadas genéricas gravam as configurações
             getProject(pid) { return state.projects.find(p => p.id === pid); },
             getCell(pid, cid) { 
                 const p = this.getProject(pid);
@@ -615,7 +627,12 @@
             factoryReset() {
                 if (!isOwner()) { alert('Apenas o dono do workspace pode apagá-lo.'); return; }
                 if(confirm("Você DELETARÁ absolutamente TODAS as células e robôs deste workspace! Continuar?")) {
-                    window._fbDB.collection('workspaces').doc(window._fbAuth.currentUser.uid).delete().then(()=>{ location.reload(); });
+                    const _db = window._fbDB, ws = window._fbAuth.currentUser.uid;
+                    const wref = _db.collection('workspaces').doc(ws);
+                    const batch = _db.batch();
+                    (state.projects || []).forEach(p => batch.delete(wref.collection('projects').doc(p.id)));
+                    batch.delete(wref);
+                    batch.commit().then(()=>{ location.reload(); }).catch(e=>{ alert('Erro ao apagar: ' + e.message); });
                 }
             }
         };
@@ -631,9 +648,21 @@
             },
             openLogsModal() {
                 const list = document.getElementById('logs-list');
-                if(!state.logs || state.logs.length === 0) list.innerHTML = "<i>Nenhum registro.</i>";
-                else list.innerHTML = state.logs.map(l => `<div style="background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:6px; font-size:0.8rem; display:flex; gap:12px;"><span style="color:var(--accent); white-space:nowrap;">[${l.ts}]</span><span>${l.msg}</span></div>`).join('');
+                list.innerHTML = "<i>Carregando...</i>";
                 document.getElementById('modal-logs').classList.add('active');
+                const _db = window._fbDB, ws = window.currentWsId;
+                if (!_db || !ws) { list.innerHTML = "<i>Indisponível.</i>"; return; }
+                _db.collection('workspaces').doc(ws).collection('logs').orderBy('ts', 'desc').limit(200).get()
+                    .then(snap => {
+                        if (snap.empty) { list.innerHTML = "<i>Nenhum registro.</i>"; return; }
+                        list.innerHTML = snap.docs.map(doc => {
+                            const l = doc.data();
+                            const when = l.tsLocal || (l.ts && l.ts.toDate ? l.ts.toDate().toLocaleString('pt-BR') : '');
+                            const who = l.byName ? ' — ' + sanitize(l.byName) : '';
+                            return `<div style="background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:6px; font-size:0.8rem; display:flex; gap:12px;"><span style="color:var(--accent); white-space:nowrap;">[${sanitize(when)}]</span><span>${sanitize(l.msg)}${who}</span></div>`;
+                        }).join('');
+                    })
+                    .catch(e => { list.innerHTML = "<i>Erro ao carregar registros: " + sanitize(e.message) + "</i>"; });
             },
             openInviteModal() {
                 document.getElementById('inp-invite-email').value = '';
@@ -678,14 +707,14 @@
             },
             addProject() {
                 const name = prompt("Digite o nome do Novo Projeto\nEx: Novo Projeto");
-                if(name) { state.projects.push({ id: getUUID(), name: name, cells: [] }); appState.save(); ui.renderDashboard(); }
+                if(name) { const _id = getUUID(); state.projects.push({ id: _id, name: name, cells: [], _ord: Date.now() }); appState.saveProject(_id); ui.renderDashboard(); }
             },
             addCell() {
                 const name = prompt("Digite o nome da Nova Célula\nEx: Célula de Solda LD");
                 if(name) { 
                     const p = appState.getProject(activeContext.projectId);
-                    p.cells.push({ id: getUUID(), name: name, robots: [] }); 
-                    appState.save(); ui.renderProject(activeContext.projectId); 
+                    p.cells.push({ id: getUUID(), name: name, robots: [] });
+                    appState.saveProject(activeContext.projectId); ui.renderProject(activeContext.projectId);
                 }
             },
             openModalAddRobot() {
@@ -715,7 +744,7 @@
                 }
                 
                 c.robots.push({ id: getUUID(), name: name, application: appType, tasks: rTasks });
-                appState.save();
+                appState.saveProject(activeContext.projectId);
                 this.closeModal();
                 ui.renderCell(activeContext.projectId, activeContext.cellId);
             },
@@ -729,7 +758,7 @@
                 const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
                 if(!r) return;
                 r.tasks.push({ id: getUUID(), cat: cat||"Extra", desc, weight: 1, progress: 0, status: "Pendente", resp: "Não Atribuído", obs: "" });
-                appState.save();
+                appState.saveProject(activeContext.projectId);
                 ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
             },
             renameProject(e, pid) {
@@ -737,33 +766,33 @@
                 const p = appState.getProject(pid);
                 if(!p) return;
                 const n = prompt("NOVO NOME DO PROJETO:", p.name);
-                if(n && n !== p.name) { p.name = n; appState.save(); ui.renderDashboard(); }
+                if(n && n !== p.name) { p.name = n; appState.saveProject(pid); ui.renderDashboard(); }
             },
             renameCell(e, pid, cid) {
                 e.stopPropagation();
                 const c = appState.getCell(pid, cid);
                 if(!c) return;
                 const n = prompt("NOVO NOME DA CÉLULA:", c.name);
-                if(n && n !== c.name) { c.name = n; appState.save(); ui.renderProject(pid); }
+                if(n && n !== c.name) { c.name = n; appState.saveProject(pid); ui.renderProject(pid); }
             },
             renameRobot(e, pid, cid, rid) {
                 e.stopPropagation();
                 const r = appState.getRobot(pid, cid, rid);
                 if(!r) return;
                 const n = prompt("NOVO NOME DO ROBÔ:", r.name);
-                if(n && n !== r.name) { r.name = n; appState.save(); ui.renderCell(pid, cid); }
+                if(n && n !== r.name) { r.name = n; appState.saveProject(pid); ui.renderCell(pid, cid); }
             },
             deleteProject(pid) {
-                if(confirm("Remover este PROJETO e tudo dentro dele?")) { state.projects = state.projects.filter(p => p.id !== pid); appState.save(); ui.renderDashboard(); }
+                if(confirm("Remover este PROJETO e tudo dentro dele?")) { state.projects = state.projects.filter(p => p.id !== pid); appState.deleteProjectDoc(pid); ui.renderDashboard(); }
             },
             deleteCell(pid, cid) {
-                if(confirm("Remover esta CÉLULA inteira?")) { const p = appState.getProject(pid); p.cells = p.cells.filter(c => c.id !== cid); appState.save(); ui.renderProject(pid); }
+                if(confirm("Remover esta CÉLULA inteira?")) { const p = appState.getProject(pid); p.cells = p.cells.filter(c => c.id !== cid); appState.saveProject(pid); ui.renderProject(pid); }
             },
             deleteRobot(pid, cid, rid) {
-                if(confirm("Remover este ROBÔ e as tarefas dele?")) { const c = appState.getCell(pid, cid); c.robots = c.robots.filter(r => r.id !== rid); appState.save(); ui.renderCell(pid, cid); }
+                if(confirm("Remover este ROBÔ e as tarefas dele?")) { const c = appState.getCell(pid, cid); c.robots = c.robots.filter(r => r.id !== rid); appState.saveProject(pid); ui.renderCell(pid, cid); }
             },
             deleteTask(tid) {
-                if(confirm("Deletar esta tarefa do robô?")) { const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); r.tasks = r.tasks.filter(t => t.id !== tid); appState.save(); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
+                if(confirm("Deletar esta tarefa do robô?")) { const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); r.tasks = r.tasks.filter(t => t.id !== tid); appState.saveProject(activeContext.projectId); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
             },
 
             updateTask(tid, field, val) {
@@ -771,6 +800,7 @@
                 const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
                 const t = r.tasks.find(x => x.id === tid);
                 if(t) {
+                    let _settingsTouched = false;
                     // Auto-assign: usa window.currentUserName como fallback seguro caso auth.currentUser
                     // ainda esteja null durante a inicialização do Firebase Auth
                     const _liveUser = auth.currentUser;
@@ -780,7 +810,7 @@
                             t.resp = _liveName;
                             // Garante que o nome aparece no dropdown de responsáveis
                             if (!state.responsibles) state.responsibles = ['Não Atribuído'];
-                            if (!state.responsibles.includes(_liveName)) state.responsibles.push(_liveName);
+                            if (!state.responsibles.includes(_liveName)) { state.responsibles.push(_liveName); _settingsTouched = true; }
                         }
                     }
                     if (field === 'status') {
@@ -804,7 +834,8 @@
                         t[field] = val;
                     }
                     
-                    appState.save();
+                    appState.saveProject(activeContext.projectId);
+                    if (_settingsTouched) appState.saveSettings();
                     ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); // Fully re-render to secure UI state mapping seamlessly
                     
                     if((field === 'progress' || field === 'status') && t.progress === 100) {
@@ -879,7 +910,7 @@
                          }
                      });
                  }
-                 if(added > 0) { appState.save(); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
+                 if(added > 0) { appState.saveProject(activeContext.projectId); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
                  alert(added + " tarefas foram adicionadas.");
             },
             // BUG-04 FIX: lê o progresso atual do state (não da closure stale do template)
@@ -1216,6 +1247,9 @@
         window.currentRole = 'owner';   // 'owner' | 'edit' | 'view'
         window.myWorkspaces = [];        // [{ id, name, role }]
         let _fsUnsub = null;
+        let _fsUnsub2 = null;
+        let _migrating = false;
+        function _unsubAll(){ if(_fsUnsub){_fsUnsub();_fsUnsub=null;} if(_fsUnsub2){_fsUnsub2();_fsUnsub2=null;} }
         // Guarda o token do convite (se veio na URL) antes do fluxo de login.
         try { const _t = new URLSearchParams(location.search).get('convite'); if (_t) sessionStorage.setItem('rt_invite', _t); } catch(e){}
 
@@ -1226,26 +1260,42 @@
         function _applyRole(){ document.body.dataset.role = window.currentRole; }
 
         function subscribeWorkspace(wsId, role) {
-            if (_fsUnsub) { _fsUnsub(); _fsUnsub = null; }
+            _unsubAll();
             window.currentWsId = wsId;
             window.currentRole = role || 'view';
             _applyRole();
             // Zera estado ao (re)abrir um workspace, evitando vazar dados do anterior.
             state.projects = []; state.logs = []; state.defaultTasks = [...defaultTemplates]; state.responsibles = ['Não Atribuído'];
             if (window.currentUserName && !state.responsibles.includes(window.currentUserName)) state.responsibles.push(window.currentUserName);
-            _fsUnsub = window._fbDB.collection('workspaces').doc(wsId).onSnapshot(function(doc) {
+            const wref = window._fbDB.collection('workspaces').doc(wsId);
+            // Listener 1: configurações do workspace (sem os projetos).
+            _fsUnsub = wref.onSnapshot(function(doc) {
                 if (doc.exists) {
                     const d = doc.data();
-                    if (Array.isArray(d.projects)) state.projects = d.projects;
                     if (Array.isArray(d.defaultTasks) && d.defaultTasks.length > 0) state.defaultTasks = d.defaultTasks;
                     if (Array.isArray(d.responsibles) && d.responsibles.length > 0) state.responsibles = d.responsibles;
-                    if (Array.isArray(d.logs)) state.logs = d.logs;
                     if (d.name) state.wsName = d.name;
-                } else {
-                    state.projects = []; state.logs = [];
+                    // Migração única: projetos (S-05) e logs (S-09) legados inline -> subcoleções. Só o dono grava.
+                    const _hasLegacy = (Array.isArray(d.projects) && d.projects.length) || (Array.isArray(d.logs) && d.logs.length);
+                    if (_hasLegacy && !_migrating && window.currentRole === 'owner') {
+                        _migrating = true;
+                        const batch = window._fbDB.batch();
+                        (d.projects || []).forEach((p, i) => batch.set(wref.collection('projects').doc(p.id || getUUID()),
+                            { name: p.name || 'Projeto', cells: p.cells || [], _ord: i, _migrated: true }));
+                        (d.logs || []).forEach(l => batch.set(wref.collection('logs').doc(),
+                            { msg: (l && l.msg) || String(l), tsLocal: (l && l.ts) || '', ts: firebase.firestore.FieldValue.serverTimestamp(), _migrated: true }));
+                        batch.update(wref, { projects: firebase.firestore.FieldValue.delete(), logs: firebase.firestore.FieldValue.delete() });
+                        batch.commit().then(() => { console.log('[RoboTrack] migração p/ subcoleções OK'); _migrating = false; })
+                            .catch(e => { console.error('[RoboTrack] migração falhou', e); _migrating = false; });
+                    }
                 }
                 _reRender();
-            }, err => console.error('[RoboTrack] Firestore listener error:', err));
+            }, err => console.error('[RoboTrack] listener workspace:', err));
+            // Listener 2: projetos, cada um em seu documento (concorrência isolada).
+            _fsUnsub2 = wref.collection('projects').orderBy('_ord').onSnapshot(function(snap) {
+                state.projects = snap.docs.map(doc => Object.assign({ id: doc.id }, doc.data()));
+                _reRender();
+            }, err => console.error('[RoboTrack] listener projects:', err));
         }
 
         function switchWorkspace(wsId) {
@@ -1384,7 +1434,7 @@
                 window.currentUserId = null;
                 const _ls2 = document.getElementById('login-screen');
                 _ls2.style.display = 'flex'; _ls2.style.visibility = 'visible'; _ls2.style.pointerEvents = 'auto';
-                if (_fsUnsub) { _fsUnsub(); _fsUnsub = null; }
+                _unsubAll();
             }
         });
         if ('serviceWorker' in navigator) {

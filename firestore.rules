@@ -34,6 +34,20 @@ service cloud.firestore {
                    || get(/databases/$(database)/documents/invites/$(request.resource.data.inviteToken)).data.expiresAt > request.time.toMillis()) ) );
         allow update, delete: if signedIn() && request.auth.uid == wsId;
       }
+
+      // Projetos: 1 documento por projeto (S-04/S-05). Leem dono e membros;
+      // escrevem dono e membros com papel 'edit'.
+      match /projects/{projectId} {
+        allow read:  if signedIn() && (request.auth.uid == wsId || isMember());
+        allow write: if signedIn() && (request.auth.uid == wsId || (isMember() && memberRole() == 'edit'));
+      }
+
+      // Log de auditoria append-only (S-09): cria dono/editor; NUNCA edita/apaga.
+      match /logs/{logId} {
+        allow read:   if signedIn() && (request.auth.uid == wsId || isMember());
+        allow create: if signedIn() && (request.auth.uid == wsId || (isMember() && memberRole() == 'edit'));
+        allow update, delete: if false;
+      }
     }
 
     match /invites/{token} {
