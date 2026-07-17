@@ -195,10 +195,13 @@
                     if(curCat !== t.cat) { curCat = t.cat; html += `<tr class="cat-row"><td colspan="6">${sanitize(curCat)}</td></tr>`; }
                     const bc = appState.getStatusStyle(t.status);
                     
-                    let obsWarning = (t.progress > 0 && t.progress < 100 && (!t.obs || t.obs.trim() === '')) 
-                        ? `border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.1); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);` 
-                        : ``;
-                    let obsPlc = obsWarning ? "⚠️ Obrigatório justificar..." : "";
+                    // Trilha de avanço: último comentário + aviso quando progresso parcial sem registro
+                    const hist = t.history || [];
+                    const lastEntry = hist.length ? hist[hist.length - 1] : null;
+                    const lastComment = lastEntry && lastEntry.comment ? lastEntry.comment : (t.obs || '');
+                    const noTrail = (t.progress > 0 && t.progress < 100 && hist.length === 0 && (!t.obs || t.obs.trim() === ''));
+                    const contribs = [...new Set(hist.map(h => h.byName).filter(Boolean).filter(n => n !== '(nota anterior)'))];
+                    const contribChips = contribs.map(n => `<span class="contrib-chip">${sanitize(n)}</span>`).join('');
 
                     let respWarning = (t.progress > 0 && (!t.resp || t.resp === 'Não Atribuído'))
                         ? `border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.1); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);` 
@@ -218,7 +221,7 @@
                             <span style="font-family:monospace;width:30px; font-weight:700" id="disp_p_${t.id}">${t.progress||0}%</span>
                             <div style="display:flex; width:100%; gap:8px;">
                                 <button onclick="uiActions.nudgeProgress('${t.id}', -10)" style="font-size:1.1rem;background:rgba(255,255,255,0.05);border-radius:4px;width:24px">-</button>
-                                <input type="range" style="width:100%" value="${t.progress||0}" step="5" oninput="document.getElementById('disp_p_'+'${t.id}').innerText = this.value + '%'" onchange="uiActions.updateTask('${t.id}', 'progress', this.value)" title="Arraste para definir">
+                                <input type="range" style="width:100%" value="${t.progress||0}" step="5" oninput="document.getElementById('disp_p_'+'${t.id}').innerText = this.value + '%'" onchange="uiActions.openAdvanceModal('${t.id}', this.value)" title="Arraste e solte para registrar avanço">
                                 <button onclick="uiActions.nudgeProgress('${t.id}', +10)" style="font-size:1.1rem;background:rgba(255,255,255,0.05);border-radius:4px;width:24px">+</button>
                             </div>
                         </div></td>
@@ -227,8 +230,14 @@
                                 <option value="Não Atribuído" disabled hidden>${t.progress > 0 && (!t.resp || t.resp === 'Não Atribuído') ? '⚠️ Escolha...' : 'Selecione'}</option>
                                 ${respOptionsHTML.replace(`value="${t.resp}"`, `value="${t.resp}" selected`)}
                             </select>
+                            ${contribChips ? `<div class="contrib-row">${contribChips}</div>` : ''}
                         </td>
-                        <td style="width: 20%"><input type="text" style="${obsWarning}" placeholder="${obsPlc}" value="${sanitize(t.obs)}" onchange="uiActions.updateTask('${t.id}', 'obs', this.value)"></td>
+                        <td style="width: 20%">
+                            <div class="trail-cell${noTrail ? ' trail-missing' : ''}" onclick="uiActions.openTaskHistory('${t.id}')" title="${sanitize(lastComment)}">
+                                <span class="trail-last">${noTrail ? '⚠️ Registre o avanço...' : (lastComment ? sanitize(lastComment) : '<i>Sem registros</i>')}</span>
+                                <button class="btn-icon trail-btn" onclick="event.stopPropagation(); uiActions.openTaskHistory('${t.id}')">💬 ${hist.length}</button>
+                            </div>
+                        </td>
                         <td><button class="btn-icon" style="color:var(--danger)" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td></tr>`;
                 });
                 tbody.innerHTML = html;

@@ -287,7 +287,86 @@
                 const t = r ? r.tasks.find(x => x.id === tid) : null;
                 if(!t) return;
                 const newVal = Math.min(100, Math.max(0, (t.progress || 0) + delta));
-                uiActions.updateTask(tid, 'progress', newVal);
+                uiActions.openAdvanceModal(tid, newVal);
+            },
+
+            // --- Registrar avanço (milestone por usuário, comentário obrigatório <100%) ---
+            _advanceTid: null,
+            openAdvanceModal(tid, toVal) {
+                if (!canEdit()) { ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); return; }
+                const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+                const t = r ? r.tasks.find(x => x.id === tid) : null;
+                if (!t) return;
+                this._advanceTid = tid;
+                const to = Math.min(100, Math.max(0, Number(toVal) || 0));
+                document.getElementById('advance-task-name').textContent = t.desc;
+                document.getElementById('advance-from').textContent = (t.progress || 0) + '%';
+                document.getElementById('advance-to').value = to;
+                document.getElementById('advance-comment').value = '';
+                this.refreshAdvanceLabel();
+                document.getElementById('modal-advance').classList.add('active');
+            },
+            refreshAdvanceLabel() {
+                const to = Number(document.getElementById('advance-to').value);
+                document.getElementById('advance-comment-label').textContent =
+                    to >= 100 ? 'O que você fez? (opcional ao concluir)' : 'O que você fez? O que falta? (obrigatório)';
+            },
+            closeAdvanceModal() {
+                this._advanceTid = null;
+                document.getElementById('modal-advance').classList.remove('active');
+                // Reverte o slider pro valor real (o arraste não foi confirmado)
+                ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+            },
+            confirmAdvance() {
+                const tid = this._advanceTid; if (!tid) return;
+                const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+                const t = r ? r.tasks.find(x => x.id === tid) : null;
+                if (!t) return this.closeAdvanceModal();
+                const to = Math.min(100, Math.max(0, Number(document.getElementById('advance-to').value) || 0));
+                const comment = document.getElementById('advance-comment').value.trim();
+                if (to < 100 && !comment) { alert('Escreva o que você fez e/ou o que falta — obrigatório enquanto a tarefa não chega a 100%.'); return; }
+                if (!t.history) t.history = [];
+                // Migração preguiçosa: nota antiga (obs) vira 1ª entrada da trilha
+                if (t.obs && t.obs.trim() && t.history.length === 0) {
+                    t.history.push({ byName: '(nota anterior)', comment: t.obs.trim(), legacy: true });
+                    delete t.obs;
+                }
+                t.history.push({
+                    by: window.currentUserId || null,
+                    byName: window.currentUserName || 'Desconhecido',
+                    ts: new Date().toISOString(),
+                    from: t.progress || 0,
+                    to: to,
+                    comment: comment
+                });
+                this._advanceTid = null;
+                document.getElementById('modal-advance').classList.remove('active');
+                // Delegar a transição mantém: auto-status, auto-resp, log S-09 no 100%, saveProject, re-render
+                uiActions.updateTask(tid, 'progress', to);
+            },
+            openTaskHistory(tid) {
+                const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+                const t = r ? r.tasks.find(x => x.id === tid) : null;
+                if (!t) return;
+                document.getElementById('th-task-name').textContent = t.desc;
+                const hist = (t.history || []).slice().reverse(); // mais novo primeiro
+                const contribs = [...new Set((t.history || []).map(h => h.byName).filter(Boolean).filter(n => n !== '(nota anterior)'))];
+                document.getElementById('th-contribs').innerHTML = contribs.length
+                    ? contribs.map(n => `<span class="contrib-chip">${sanitize(n)}</span>`).join('')
+                    : '';
+                const tl = document.getElementById('th-timeline');
+                if (!hist.length) { tl.innerHTML = '<i style="color:var(--text-muted)">Nenhum avanço registrado ainda.</i>'; }
+                else {
+                    tl.innerHTML = hist.map(h => {
+                        const when = h.ts ? new Date(h.ts).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+                        const delta = (h.from != null && h.to != null) ? `<span class="tl-delta">${h.from}% → ${h.to}%</span>` : '';
+                        return `<div class="tl-entry${h.legacy ? ' tl-legacy' : ''}">
+                            <div class="tl-head"><b>${sanitize(h.byName || '—')}</b> ${delta} <span class="tl-ts">${sanitize(when)}</span></div>
+                            ${h.comment ? `<div class="tl-comment">${sanitize(h.comment)}</div>` : ''}
+                        </div>`;
+                    }).join('');
+                }
+                document.getElementById('modal-task-history').classList.add('active');
             }
         };
 
