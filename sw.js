@@ -3,14 +3,20 @@
 //  - HTML/navegação: NETWORK-FIRST -> o app sempre atualiza; cache é só fallback offline.
 //  - Requisições cross-origin (Firebase / Firestore / gstatic): NÃO são interceptadas,
 //    vão sempre à rede ao vivo. Isso é essencial para os saves na nuvem funcionarem.
-//  - Assets estáticos same-origin: cache-first para carregamento rápido offline.
-const CACHE_NAME = 'robotrack-v9-cache-v2';
+//  - Todo same-origin (HTML, JS, CSS): NETWORK-FIRST -> nunca serve JS/CSS velho; cache é fallback offline.
+const CACHE_NAME = 'robotrack-v9-cache-v3';
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './assets/css/styles.css',
+  './src/model/data.js',
+  './src/model/store.js',
+  './src/model/firebase.js',
+  './src/view/ui.js',
+  './src/controller/controller.js'
 ];
 
 self.addEventListener('install', event => {
@@ -47,23 +53,18 @@ self.addEventListener('fetch', event => {
   // Interceptá-las ou cacheá-las quebraria login e sincronização de dados.
   if (url.origin !== self.location.origin) return;
 
-  const isHTML = req.mode === 'navigate' ||
-                 (req.headers.get('accept') || '').includes('text/html');
+  const isNav = req.mode === 'navigate' ||
+                (req.headers.get('accept') || '').includes('text/html');
 
-  if (isHTML) {
-    // NETWORK-FIRST: busca a versão mais recente do app; usa cache só se offline.
-    event.respondWith(
-      fetch(req)
-        .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(req, copy)).catch(() => {});
-          return response;
-        })
-        .catch(() => caches.match(req).then(r => r || caches.match('./index.html')))
-    );
-    return;
-  }
-
-  // CACHE-FIRST para outros assets estáticos same-origin.
-  event.respondWith(caches.match(req).then(r => r || fetch(req)));
+  // NETWORK-FIRST para todo same-origin (shell + módulos JS/CSS): sempre a versão mais
+  // nova; cache é fallback offline. Evita ficar preso em JS/CSS antigos após um deploy.
+  event.respondWith(
+    fetch(req)
+      .then(response => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(req, copy)).catch(() => {});
+        return response;
+      })
+      .catch(() => caches.match(req).then(r => r || (isNav ? caches.match('./index.html') : undefined)))
+  );
 });
