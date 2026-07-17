@@ -657,7 +657,8 @@
                     await _db.collection('invites').doc(token).set({
                         email, role, wsId: _user.uid, wsName,
                         createdBy: _user.uid, createdByEmail: (_user.email||'').toLowerCase(),
-                        used: false, createdAt: new Date().toISOString()
+                        used: false, createdAt: new Date().toISOString(),
+                        expiresAt: Date.now() + 7*24*60*60*1000 // millis, 7 dias
                     });
                     const link = location.origin + location.pathname + '?convite=' + token;
                     document.getElementById('invite-link-input').value = link;
@@ -730,6 +731,13 @@
                 r.tasks.push({ id: getUUID(), cat: cat||"Extra", desc, weight: 1, progress: 0, status: "Pendente", resp: "Não Atribuído", obs: "" });
                 appState.save();
                 ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+            },
+            renameProject(e, pid) {
+                e.stopPropagation();
+                const p = appState.getProject(pid);
+                if(!p) return;
+                const n = prompt("NOVO NOME DO PROJETO:", p.name);
+                if(n && n !== p.name) { p.name = n; appState.save(); ui.renderDashboard(); }
             },
             renameCell(e, pid, cid) {
                 e.stopPropagation();
@@ -816,6 +824,7 @@
                 appState.save();
                 ui.renderSettings();
             },
+            deleteResponsibleAt(i) { const r = (state.responsibles || [])[i]; if (r) this.deleteResponsible(r); },
             deleteResponsible(r) {
                 if(confirm(`Remover o(a) responsável ${r}?`)) {
                     state.responsibles = state.responsibles.filter(x => x !== r);
@@ -930,7 +939,7 @@
                 grid.innerHTML = state.projects.map(p => `
                     <div class="card" onclick="nav('project', '${p.id}')">
                         <div class="action-btns">
-                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${p.name.replace(/'/g,String.fromCharCode(96))}'); if(n){p.name=n; appState.save(); ui.renderDashboard();}">✏️</button>
+                            <button class="btn-icon" onclick="uiActions.renameProject(event, '${p.id}')">✏️</button>
                             <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}')">🗑️</button>
                         </div>
                         <div class="card-header" style="flex-wrap:wrap; gap:6px;">
@@ -984,7 +993,7 @@
                 grid.innerHTML = p.cells.map(c => `
                     <div class="card" onclick="nav('cell', '${p.id}', '${c.id}')">
                         <div class="action-btns">
-                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${c.name.replace(/'/g,String.fromCharCode(96))}'); if(n){c.name=n; appState.save(); ui.renderProject('${p.id}');}">✏️</button>
+                            <button class="btn-icon" onclick="uiActions.renameCell(event, '${p.id}', '${c.id}')">✏️</button>
                             <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}')">🗑️</button>
                         </div>
                         <div class="card-header" style="flex-wrap:wrap; gap:6px;">
@@ -1036,7 +1045,7 @@
                 grid.innerHTML = c.robots.map(r => `
                     <div class="card" onclick="nav('robot', '${pid}', '${c.id}', '${r.id}')">
                         <div class="action-btns">
-                            <button class="btn-icon" onclick="event.stopPropagation(); const n=prompt('Renomear:', '${r.name.replace(/'/g,String.fromCharCode(96))}'); if(n){r.name=n; appState.save(); ui.renderCell('${pid}', '${c.id}');}">✏️</button>
+                            <button class="btn-icon" onclick="uiActions.renameRobot(event, '${pid}', '${c.id}', '${r.id}')">✏️</button>
                             <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}')">🗑️</button>
                         </div>
                         <div class="card-header" style="flex-wrap:wrap; gap:6px;">
@@ -1064,7 +1073,7 @@
                     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted)">Nenhuma tarefa.</td></tr>`; return;
                 }
                 
-                const respOptionsHTML = (state.responsibles || ["Não Atribuído"]).map(res => `<option value="${res}">${res}</option>`).join('');
+                const respOptionsHTML = (state.responsibles || ["Não Atribuído"]).map(res => `<option value="${sanitize(res)}">${sanitize(res)}</option>`).join('');
                 
                 let html = '', curCat = '';
                 r.tasks.forEach(t => {
@@ -1117,8 +1126,8 @@
                 const rl = document.getElementById('responsibles-list');
                 
                 if(state.responsibles) {
-                    rl.innerHTML = state.responsibles.map(r => `
-                        <div class="resp-tag">${r} ${r !== 'Não Atribuído' ? `<button onclick="uiActions.deleteResponsible('${r}')" style="color:var(--danger)">X</button>` : ''}</div>
+                    rl.innerHTML = state.responsibles.map((r, i) => `
+                        <div class="resp-tag">${sanitize(r)} ${r !== 'Não Atribuído' ? `<button onclick="uiActions.deleteResponsibleAt(${i})" style="color:var(--danger)">X</button>` : ''}</div>
                     `).join('');
                 }
 
@@ -1126,8 +1135,8 @@
                 tt.innerHTML = state.defaultTasks.map(t => {
                     const filters = t.appFilters || t.apps || [];
                     const l = (filters.length > 0) ? filters.join(', ') : 'Geral (Todos)';
-                    return `<tr><td style="color:var(--accent); font-weight:bold">${t.cat}</td><td>${t.desc}</td>
-                    <td style="text-align:left"><button class="btn" style="padding:4px 8px; font-size:0.75rem; background:rgba(255,255,255,0.1); border-color:transparent;" onclick="uiActions.editAppFilter('${t.id}')">✏️ ${l}</button></td>
+                    return `<tr><td style="color:var(--accent); font-weight:bold">${sanitize(t.cat)}</td><td>${sanitize(t.desc)}</td>
+                    <td style="text-align:left"><button class="btn" style="padding:4px 8px; font-size:0.75rem; background:rgba(255,255,255,0.1); border-color:transparent;" onclick="uiActions.editAppFilter('${t.id}')">✏️ ${sanitize(l)}</button></td>
                     <td style="text-align:right"><button class="btn-icon" style="color:var(--danger)" onclick="uiActions.deleteDefaultTask('${t.id}')">🗑️</button></td></tr>`;
                 }).join('');
             }
@@ -1287,6 +1296,7 @@
                 if (!isnap.exists) { alert('Convite inválido ou já utilizado.'); return null; }
                 const inv = isnap.data();
                 if (inv.used) { alert('Este convite já foi utilizado.'); return null; }
+                if (inv.expiresAt && Date.now() > inv.expiresAt) { alert('Este convite expirou. Peça um novo.'); return null; }
                 const myEmail = (user.email||'').toLowerCase();
                 if ((inv.email||'').toLowerCase() !== myEmail) { alert('Este convite é para outro e-mail: ' + inv.email); return null; }
                 // Cria a associação e marca o convite como usado (batch = atômico).
