@@ -1,0 +1,56 @@
+rules_version = '2';
+// RoboTrack — Firestore Security Rules (fonte de verdade versionada)
+// Responde S-01/S-02 da auditoria: autorização é validada AQUI, no servidor.
+// - Papel (role) vem SOMENTE de workspaces/{ws}/members/{uid}. O doc users/{uid}
+//   é só índice de UI: adulterá-lo não concede acesso (leitura/escrita são
+//   negadas se não houver membership real).
+// Publicar no console: Firestore → Rules → colar → Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myEmail() { return request.auth.token.email.lower(); }
+
+    match /workspaces/{wsId} {
+      function isMember() { return exists(/databases/$(database)/documents/workspaces/$(wsId)/members/$(request.auth.uid)); }
+      function memberRole() { return get(/databases/$(database)/documents/workspaces/$(wsId)/members/$(request.auth.uid)).data.role; }
+      allow read:   if signedIn() && (request.auth.uid == wsId || isMember());
+      allow create: if signedIn() && request.auth.uid == wsId && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if signedIn() && ( request.auth.uid == wsId
+                     || (isMember() && memberRole() == 'edit' && request.resource.data.ownerUid == resource.data.ownerUid) );
+      allow delete: if signedIn() && request.auth.uid == wsId;
+
+      match /members/{memberUid} {
+        allow read: if signedIn() && (request.auth.uid == wsId || request.auth.uid == memberUid);
+        // Cria membership: o dono direto, ou o próprio convidado consumindo um
+        // convite válido (não usado, não expirado, e-mail e papel batendo).
+        allow create: if signedIn() && ( request.auth.uid == wsId
+          || ( request.auth.uid == memberUid
+               && exists(/databases/$(database)/documents/invites/$(request.resource.data.inviteToken))
+               && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteToken)).data.used == false
+               && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteToken)).data.wsId == wsId
+               && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteToken)).data.email == myEmail()
+               && get(/databases/$(database)/documents/invites/$(request.resource.data.inviteToken)).data.role == request.resource.data.role
+               && (!('expiresAt' in get(/databases/$(database)/documents/invites/$(request.resource.data.inviteToken)).data)
+                   || get(/databases/$(database)/documents/invites/$(request.resource.data.inviteToken)).data.expiresAt > request.time.toMillis()) ) );
+        allow update, delete: if signedIn() && request.auth.uid == wsId;
+      }
+    }
+
+    match /invites/{token} {
+      allow get:    if signedIn();
+      // S-08 (mínimo): tipos e papéis restritos na criação.
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid
+                     && request.resource.data.wsId == request.auth.uid
+                     && request.resource.data.used == false
+                     && request.resource.data.role in ['view', 'edit']
+                     && request.resource.data.email is string
+                     && request.resource.data.email.size() <= 254;
+      // Só o consumo: marca used=true, e-mail do convite tem que ser o meu.
+      allow update: if signedIn() && resource.data.used == false
+                     && request.resource.data.used == true && resource.data.email == myEmail();
+      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+    }
+
+    match /users/{uid} { allow read, write: if signedIn() && request.auth.uid == uid; }
+  }
+}
