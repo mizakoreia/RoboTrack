@@ -41,6 +41,13 @@ service cloud.firestore {
         allow read:  if signedIn() && (request.auth.uid == wsId || isMember());
         allow write: if signedIn() && (request.auth.uid == wsId || (isMember() && memberRole() == 'edit'));
       }
+
+      // Log de auditoria append-only (S-09): cria dono/editor; NUNCA edita/apaga.
+      match /logs/{logId} {
+        allow read:   if signedIn() && (request.auth.uid == wsId || isMember());
+        allow create: if signedIn() && (request.auth.uid == wsId || (isMember() && memberRole() == 'edit'));
+        allow update, delete: if false;
+      }
     }
 
     match /invites/{token} {

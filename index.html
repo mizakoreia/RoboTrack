@@ -532,11 +532,17 @@
         let currentTaskFilter = 'T'; // T: Todos, P: Pendentes, C: Concluídos
 
         const appState = {
+            // S-09: log append-only em subcoleção própria (protegida por rules: sem update/delete).
             addLog(msg) {
-                if(!state.logs) state.logs = [];
-                state.logs.unshift({ ts: new Date().toLocaleString('pt-BR'), msg });
-                if(state.logs.length > 200) state.logs.pop();
-                // save() é chamado pelo chamador (updateTask) — evita double-write e loop de re-render
+                const wref = this._wsRef(); if (!wref) return;
+                let ts; try { ts = firebase.firestore.FieldValue.serverTimestamp(); } catch(e){ ts = null; }
+                wref.collection('logs').add({
+                    msg: msg,
+                    ts: ts,
+                    tsLocal: new Date().toLocaleString('pt-BR'),
+                    by: window.currentUserId || null,
+                    byName: window.currentUserName || null
+                }).catch(e => console.error('[RoboTrack] addLog', e && e.message));
             },
             load() { /* Firebase onSnapshot handles data loading */ },
             // --- Persistência granular (S-04/S-05): 1 documento por projeto ---
@@ -570,7 +576,7 @@
                 wref.set({
                     ownerUid: window.currentWsId || (window._fbAuth.currentUser && window._fbAuth.currentUser.uid),
                     name: state.wsName || 'Meu Workspace',
-                    defaultTasks: state.defaultTasks, responsibles: state.responsibles, logs: state.logs,
+                    defaultTasks: state.defaultTasks, responsibles: state.responsibles,
                     _updatedAt: new Date().toISOString()
                 }, { merge: true }).then(() => this._ind('✅ Salvo')).catch(e => this._saveErr(e));
             },
@@ -642,9 +648,21 @@
             },
             openLogsModal() {
                 const list = document.getElementById('logs-list');
-                if(!state.logs || state.logs.length === 0) list.innerHTML = "<i>Nenhum registro.</i>";
-                else list.innerHTML = state.logs.map(l => `<div style="background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:6px; font-size:0.8rem; display:flex; gap:12px;"><span style="color:var(--accent); white-space:nowrap;">[${l.ts}]</span><span>${l.msg}</span></div>`).join('');
+                list.innerHTML = "<i>Carregando...</i>";
                 document.getElementById('modal-logs').classList.add('active');
+                const _db = window._fbDB, ws = window.currentWsId;
+                if (!_db || !ws) { list.innerHTML = "<i>Indisponível.</i>"; return; }
+                _db.collection('workspaces').doc(ws).collection('logs').orderBy('ts', 'desc').limit(200).get()
+                    .then(snap => {
+                        if (snap.empty) { list.innerHTML = "<i>Nenhum registro.</i>"; return; }
+                        list.innerHTML = snap.docs.map(doc => {
+                            const l = doc.data();
+                            const when = l.tsLocal || (l.ts && l.ts.toDate ? l.ts.toDate().toLocaleString('pt-BR') : '');
+                            const who = l.byName ? ' — ' + sanitize(l.byName) : '';
+                            return `<div style="background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:6px; font-size:0.8rem; display:flex; gap:12px;"><span style="color:var(--accent); white-space:nowrap;">[${sanitize(when)}]</span><span>${sanitize(l.msg)}${who}</span></div>`;
+                        }).join('');
+                    })
+                    .catch(e => { list.innerHTML = "<i>Erro ao carregar registros: " + sanitize(e.message) + "</i>"; });
             },
             openInviteModal() {
                 document.getElementById('inp-invite-email').value = '';
@@ -808,7 +826,6 @@
                         if (t.progress === 100) {
                             t.status = "Concluído";
                             appState.addLog(`Em [${r.name}], ${t.resp} concluiu a tarefa "${t.desc}" com 100%.`);
-                            _settingsTouched = true;
                         }
                         else if (t.progress > 0) t.status = "Em Andamento";
                         else if (!t.status.includes("N/A")) t.status = "Pendente"; 
@@ -1257,16 +1274,18 @@
                     const d = doc.data();
                     if (Array.isArray(d.defaultTasks) && d.defaultTasks.length > 0) state.defaultTasks = d.defaultTasks;
                     if (Array.isArray(d.responsibles) && d.responsibles.length > 0) state.responsibles = d.responsibles;
-                    if (Array.isArray(d.logs)) state.logs = d.logs;
                     if (d.name) state.wsName = d.name;
-                    // Migração única (S-05): projetos legados inline -> subcoleção. Só o dono grava.
-                    if (Array.isArray(d.projects) && d.projects.length && !_migrating && window.currentRole === 'owner') {
+                    // Migração única: projetos (S-05) e logs (S-09) legados inline -> subcoleções. Só o dono grava.
+                    const _hasLegacy = (Array.isArray(d.projects) && d.projects.length) || (Array.isArray(d.logs) && d.logs.length);
+                    if (_hasLegacy && !_migrating && window.currentRole === 'owner') {
                         _migrating = true;
                         const batch = window._fbDB.batch();
-                        d.projects.forEach((p, i) => batch.set(wref.collection('projects').doc(p.id || getUUID()),
+                        (d.projects || []).forEach((p, i) => batch.set(wref.collection('projects').doc(p.id || getUUID()),
                             { name: p.name || 'Projeto', cells: p.cells || [], _ord: i, _migrated: true }));
-                        batch.update(wref, { projects: firebase.firestore.FieldValue.delete() });
-                        batch.commit().then(() => { console.log('[RoboTrack] migração p/ subcoleção OK'); _migrating = false; })
+                        (d.logs || []).forEach(l => batch.set(wref.collection('logs').doc(),
+                            { msg: (l && l.msg) || String(l), tsLocal: (l && l.ts) || '', ts: firebase.firestore.FieldValue.serverTimestamp(), _migrated: true }));
+                        batch.update(wref, { projects: firebase.firestore.FieldValue.delete(), logs: firebase.firestore.FieldValue.delete() });
+                        batch.commit().then(() => { console.log('[RoboTrack] migração p/ subcoleções OK'); _migrating = false; })
                             .catch(e => { console.error('[RoboTrack] migração falhou', e); _migrating = false; });
                     }
                 }
