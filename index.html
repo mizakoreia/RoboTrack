@@ -301,6 +301,39 @@
         </div>
     </div>
 
+    <!-- MODAL REGISTRAR AVANÇO -->
+    <div class="modal-overlay" id="modal-advance">
+        <div class="modal-content" style="width:460px;">
+            <h2 class="modal-title">Registrar avanço</h2>
+            <p class="modal-desc" id="advance-task-name" style="margin-bottom:8px;"></p>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                <span style="font-family:monospace; color:var(--text-muted);" id="advance-from">0%</span>
+                <span style="color:var(--text-muted);">→</span>
+                <input type="number" id="advance-to" min="0" max="100" step="5" style="width:90px; margin:0; font-family:monospace; font-weight:700; font-size:1rem;" oninput="uiActions.refreshAdvanceLabel()">
+                <span style="color:var(--text-muted); font-size:0.85rem;">%</span>
+            </div>
+            <label class="form-label" id="advance-comment-label">O que você fez? O que falta? (obrigatório)</label>
+            <textarea id="advance-comment" rows="3" placeholder="Ex: Teach das trajetórias 1-4 concluído; falta a traj. de descarte." style="width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--border); padding:10px 12px; border-radius:6px; color:var(--text-main); resize:vertical; outline:none; box-sizing:border-box; font-family:inherit; font-size:0.9rem; margin-bottom:20px;"></textarea>
+            <div style="display:flex; justify-content:flex-end; gap:12px">
+                <button class="btn" onclick="uiActions.closeAdvanceModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="uiActions.confirmAdvance()">Registrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL HISTÓRICO DA TAREFA -->
+    <div class="modal-overlay" id="modal-task-history">
+        <div class="modal-content" style="width:560px; max-height:80vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <h2 class="modal-title" style="margin:0;">Histórico da tarefa</h2>
+                <button onclick="document.getElementById('modal-task-history').classList.remove('active')" style="color:var(--text-muted); font-size:1.5rem;">&times;</button>
+            </div>
+            <p class="modal-desc" id="th-task-name" style="margin-bottom:10px;"></p>
+            <div id="th-contribs" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;"></div>
+            <div id="th-timeline" style="display:flex; flex-direction:column; gap:10px;"></div>
+        </div>
+    </div>
+
     <script src="src/model/data.js"></script>
     <script src="src/model/store.js"></script>
     <script src="src/model/firebase.js"></script>
