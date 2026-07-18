@@ -18,15 +18,19 @@
             background: var(--bg-main); height: 100vh; display: flex; overflow: hidden; font-size: 14px; transition: background 0.3s;
         }
 
+        /* Impressão: só o protocolo (view-report) sai no papel */
         @media print {
-            .sidebar, .action-btns, .slider-cont, button, .filter-bar, .modal-overlay, #btn-sync-tasks { display: none !important; }
-            body, .main { height: auto !important; overflow: visible !important; background: #fff !important; color: #000 !important; }
-            * { color: #000 !important; text-shadow: none !important; }
-            .card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; }
-            table, th, td { border-color: #ccc; }
-            .badge { border: 1px solid #aaa; color: #000; background: #eee !important; }
-            .status-select { border: none !important; background: transparent !important; color: #000 !important; }
-            @page { margin: 1cm; size: A4 landscape; }
+            @page { margin: 12mm; size: A4 portrait; }
+            body { display: block !important; height: auto !important; overflow: visible !important; background: #fff !important; }
+            .sidebar, .no-print, .modal-overlay { display: none !important; }
+            .main { padding: 0 !important; overflow: visible !important; }
+            .view { display: none !important; }
+            #view-report { display: block !important; animation: none !important; }
+            .rpt-sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; border: none; }
+            .rpt-project { break-inside: auto; }
+            .rpt-robot, .rpt-sign, .rpt-head, .rpt-meta { break-inside: avoid; }
+            .rpt-tasks tr { break-inside: avoid; }
+            * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         }
         
         .filter-btn { padding:6px 14px; border-radius:20px; font-size:0.75rem; font-weight:600; cursor:pointer; background:var(--bg-panel); color:var(--text-muted); border:1px solid var(--border); transition:0.2s; margin-right:6px;}
@@ -195,3 +199,55 @@
 .tl-delta { font-family:monospace; font-size:0.75rem; color:var(--accent); background:rgba(59,130,246,0.1); padding:1px 8px; border-radius:8px; }
 .tl-ts { margin-left:auto; font-size:0.72rem; color:var(--text-muted); white-space:nowrap; }
 .tl-comment { margin-top:6px; font-size:0.85rem; color:var(--text-main); line-height:1.45; }
+
+/* --- Relatório: protocolo industrial de aceite --- */
+.rpt-sheet { background:#fff; color:#111827; max-width:900px; margin:0 auto; padding:34px 38px; border-radius:4px; box-shadow:0 8px 40px rgba(0,0,0,0.45); font-size:0.85rem; line-height:1.45; }
+.rpt-sheet * { color:inherit; }
+.rpt-doc h2, .rpt-doc h3, .rpt-doc h4 { margin:0; font-weight:700; }
+.rpt-mono { font-family:"SFMono-Regular",Consolas,monospace; font-size:0.78em; letter-spacing:0.02em; }
+.rpt-head { width:100%; border-collapse:collapse; border:2px solid #111827; }
+.rpt-head td { border:none; padding:14px 16px; }
+.rpt-doc-type { font-size:0.7rem; font-weight:700; letter-spacing:0.14em; color:#374151; }
+.rpt-doc-name { font-size:1.45rem; font-weight:800; margin-top:2px; }
+.rpt-stamp-cell { width:170px; text-align:right; }
+.rpt-stamp { display:inline-flex; flex-direction:column; align-items:center; border:3px double; border-radius:6px; padding:8px 18px; transform:rotate(-2deg); }
+.rpt-stamp-pct { font-size:1.5rem; font-weight:800; font-family:monospace; }
+.rpt-stamp-lbl { font-size:0.62rem; font-weight:700; letter-spacing:0.12em; }
+.rpt-stamp.ok { color:#047857; border-color:#047857; background:#ecfdf5; }
+.rpt-stamp.part { color:#b45309; border-color:#b45309; background:#fffbeb; }
+.rpt-stamp.pend { color:#4b5563; border-color:#4b5563; background:#f9fafb; }
+.rpt-meta { width:100%; border-collapse:collapse; border:2px solid #111827; border-top:none; }
+.rpt-meta td { border:1px solid #d1d5db; padding:6px 12px; }
+.rpt-meta td:nth-child(odd) { width:110px; font-size:0.68rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#374151; background:#f3f4f6; }
+.rpt-dist { width:100%; border-collapse:collapse; border:2px solid #111827; border-top:none; margin-bottom:26px; text-align:center; }
+.rpt-dist td { border-right:1px solid #d1d5db; padding:8px 6px; font-size:0.78rem; }
+.rpt-dist td:last-child { border-right:none; }
+.rpt-dist td b { font-size:1rem; margin-left:4px; }
+.rpt-dist .ok { color:#047857; } .rpt-dist .part { color:#b45309; } .rpt-dist .pend { color:#374151; } .rpt-dist .na { color:#6b7280; }
+.rpt-sec { display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:3px solid #111827; padding-bottom:6px; margin:26px 0 12px; }
+.rpt-sec h2 { font-size:1.05rem; text-transform:uppercase; letter-spacing:0.04em; }
+.rpt-cell-h { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:14px 0 8px; }
+.rpt-cell-h h3 { font-size:0.92rem; color:#1f2937; }
+.rpt-robot { margin:10px 0 18px; }
+.rpt-robot-h { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:6px; }
+.rpt-robot-h h4 { font-size:0.85rem; }
+.rpt-app { font-weight:500; font-size:0.72rem; color:#6b7280; margin-left:6px; }
+.rpt-bar { position:relative; flex:0 0 180px; height:12px; background:#e5e7eb; border:1px solid #9ca3af; border-radius:2px; overflow:hidden; }
+.rpt-bar-fill { height:100%; background:#111827; }
+.rpt-bar span { position:absolute; right:4px; top:-1px; font-size:0.62rem; font-family:monospace; font-weight:700; color:#111827; mix-blend-mode:difference; filter:invert(1) grayscale(1) contrast(9); }
+.rpt-tasks { width:100%; border-collapse:collapse; }
+.rpt-tasks th { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.08em; text-align:left; color:#374151; background:#f3f4f6; border:1px solid #d1d5db; padding:5px 8px; }
+.rpt-tasks td { border:1px solid #e5e7eb; padding:5px 8px; vertical-align:top; }
+.rpt-r { text-align:right; }
+.rpt-sym { width:26px; text-align:center; font-weight:800; }
+.rpt-sym.ok { color:#047857; } .rpt-sym.part { color:#b45309; } .rpt-sym.pend { color:#6b7280; } .rpt-sym.na { color:#9ca3af; }
+.rpt-st { white-space:nowrap; font-size:0.72rem; font-weight:600; }
+.rpt-st.ok { color:#047857; } .rpt-st.part { color:#b45309; } .rpt-st.pend { color:#4b5563; } .rpt-st.na { color:#6b7280; }
+.rpt-t-na td { color:#9ca3af; }
+.rpt-ms td { border:none; border-left:1px solid #e5e7eb; border-right:1px solid #e5e7eb; padding:2px 8px 2px 8px; font-size:0.72rem; color:#4b5563; background:#fafafa; }
+.rpt-empty { border:2px dashed #d1d5db; border-radius:6px; padding:28px; text-align:center; color:#6b7280; margin:20px 0; }
+.rpt-sign { display:flex; gap:40px; margin:44px 0 10px; }
+.rpt-sign-box { flex:1; text-align:center; font-size:0.75rem; color:#374151; }
+.rpt-sign-line { border-bottom:1.5px solid #111827; height:42px; margin-bottom:6px; }
+.rpt-foot { border-top:1px solid #d1d5db; margin-top:18px; padding-top:8px; font-size:0.66rem; color:#6b7280; text-align:center; }
+@media (max-width:800px){ .rpt-sheet { padding:20px 14px; } .rpt-bar { flex-basis:110px; } .rpt-sign { gap:16px; } }

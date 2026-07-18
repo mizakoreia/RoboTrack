@@ -80,7 +80,7 @@
             <li class="nav-item" onclick="document.body.dataset.theme = document.body.dataset.theme === 'light' ? 'dark' : 'light';">
                 🌓 Escuro / Claro
             </li>
-            <li class="nav-item" onclick="window.print()">
+            <li class="nav-item" onclick="nav('report')" id="nav-report">
                 🖨️ Relatório A4
             </li>
             <li class="nav-item" onclick="uiActions.openLogsModal()">
@@ -173,6 +173,24 @@
                     <tbody></tbody>
                 </table>
             </div>
+        </div>
+
+        <!-- REPORT VIEW -->
+        <div id="view-report" class="view">
+            <div class="header no-print">
+                <div>
+                    <h1 class="title">Relatório de Comissionamento</h1>
+                    <p class="subtitle">Escolha o escopo e imprima ou salve em PDF (A4).</p>
+                </div>
+                <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+                    <div>
+                        <label class="form-label">Escopo</label>
+                        <select id="report-scope" onchange="ui.renderReport()" style="width:auto; min-width:200px; margin:0;"></select>
+                    </div>
+                    <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+                </div>
+            </div>
+            <div id="report-sheet" class="rpt-sheet"></div>
         </div>
 
         <!-- SETTINGS VIEW: Global Templates -->

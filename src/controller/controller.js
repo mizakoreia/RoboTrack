@@ -410,6 +410,9 @@
                 } else if (view === 'settings') {
                     document.getElementById('nav-settings').classList.add('active');
                     ui.renderSettings();
+                } else if (view === 'report') {
+                    const nr = document.getElementById('nav-report'); if (nr) nr.classList.add('active');
+                    ui.renderReport();
                 }
             }, 10);
         }
@@ -462,6 +465,7 @@
             else if (id === 'cell' && activeContext.cellId) ui.renderCell(activeContext.projectId, activeContext.cellId);
             else if (id === 'robot' && activeContext.robotId) ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
             else if (id === 'settings') ui.renderSettings();
+            else if (id === 'report') ui.renderReport();
         }
 
         auth.onAuthStateChanged(async function(user) {
