@@ -283,6 +283,19 @@
         </div>
     </div>
 
+    <!-- MODAL PROMPT (substitui prompt() nativo, bloqueado em navegadores como o Brave) -->
+    <div class="modal-overlay" id="modal-prompt">
+        <div class="modal-content" style="width:420px;">
+            <h2 class="modal-title" id="prompt-title"></h2>
+            <p class="modal-desc" id="prompt-desc" style="white-space:pre-line;"></p>
+            <input type="text" id="prompt-input" style="width:100%">
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px">
+                <button class="btn" id="prompt-cancel">Cancelar</button>
+                <button class="btn btn-primary" id="prompt-ok">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL LOGS -->
     <div class="modal-overlay" id="modal-logs">
         <div class="modal-content" style="width:600px; max-height:80vh; overflow-y:auto;">

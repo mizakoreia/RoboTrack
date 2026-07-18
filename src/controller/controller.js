@@ -5,6 +5,34 @@
  * a View redesenhar. Depende de todos os outros módulos.
  * ========================================================================== */
 
+        // uiPrompt: modal de input que substitui o prompt() nativo (bloqueado no Brave
+        // e outros). Resolve com a string digitada no OK, ou null no Cancelar/Esc.
+        function uiPrompt(title, desc, value) {
+            return new Promise(resolve => {
+                const ov = document.getElementById('modal-prompt');
+                document.getElementById('prompt-title').textContent = title || '';
+                const d = document.getElementById('prompt-desc');
+                d.textContent = desc || ''; d.style.display = desc ? 'block' : 'none';
+                const inp = document.getElementById('prompt-input');
+                const ok = document.getElementById('prompt-ok'), cancel = document.getElementById('prompt-cancel');
+                inp.value = value || '';
+                ov.classList.add('active');
+                setTimeout(() => { inp.focus(); inp.select(); }, 30);
+                function done(val) {
+                    ov.classList.remove('active');
+                    ok.onclick = cancel.onclick = inp.onkeydown = ov.onclick = null;
+                    resolve(val);
+                }
+                ok.onclick = () => done(inp.value);
+                cancel.onclick = () => done(null);
+                ov.onclick = e => { if (e.target === ov) done(null); }; // clicar no fundo cancela
+                inp.onkeydown = e => {
+                    if (e.key === 'Enter') { e.preventDefault(); done(inp.value); }
+                    else if (e.key === 'Escape') { e.preventDefault(); done(null); }
+                };
+            });
+        }
+
         const uiActions = {
             setFilter(f, btnNode) {
                 currentTaskFilter = f;
@@ -125,13 +153,13 @@
                 try { navigator.clipboard.writeText(inp.value); } catch(e){ try { document.execCommand('copy'); } catch(_){} }
                 const b = document.getElementById('btn-copy-link'); const t = b.textContent; b.textContent = '✅ Copiado!'; setTimeout(()=>{ b.textContent = t; }, 1500);
             },
-            addProject() {
-                const name = prompt("Digite o nome do Novo Projeto\nEx: Novo Projeto");
+            async addProject() {
+                const name = await uiPrompt("Novo Projeto", "Digite o nome do projeto (ex: Linha de Montagem A).");
                 if(name) { const _id = getUUID(); state.projects.push({ id: _id, name: name, cells: [], _ord: Date.now() }); appState.saveProject(_id); ui.renderDashboard(); }
             },
-            addCell() {
-                const name = prompt("Digite o nome da Nova Célula\nEx: Célula de Solda LD");
-                if(name) { 
+            async addCell() {
+                const name = await uiPrompt("Nova Célula", "Digite o nome da célula (ex: Célula de Solda LD).");
+                if(name) {
                     const p = appState.getProject(activeContext.projectId);
                     p.cells.push({ id: getUUID(), name: name, robots: [] });
                     appState.saveProject(activeContext.projectId); ui.renderProject(activeContext.projectId);
@@ -169,10 +197,10 @@
                 ui.renderCell(activeContext.projectId, activeContext.cellId);
             },
 
-            addCustomTask() {
-                const cat = prompt("Qual a Categoria? (Deixe em branco p/ Extras)", "Extras - Geral");
-                if(cat === null) return; 
-                const desc = prompt("Descreva a tarefa detalhadamente:", "");
+            async addCustomTask() {
+                const cat = await uiPrompt("Categoria da tarefa", "Deixe em branco para 'Extras'.", "Extras - Geral");
+                if(cat === null) return;
+                const desc = await uiPrompt("Nova tarefa", "Descreva a tarefa detalhadamente:", "");
                 if(!desc) return;
 
                 const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
@@ -181,25 +209,25 @@
                 appState.saveProject(activeContext.projectId);
                 ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
             },
-            renameProject(e, pid) {
+            async renameProject(e, pid) {
                 e.stopPropagation();
                 const p = appState.getProject(pid);
                 if(!p) return;
-                const n = prompt("NOVO NOME DO PROJETO:", p.name);
+                const n = await uiPrompt("Renomear projeto", "", p.name);
                 if(n && n !== p.name) { p.name = n; appState.saveProject(pid); ui.renderDashboard(); }
             },
-            renameCell(e, pid, cid) {
+            async renameCell(e, pid, cid) {
                 e.stopPropagation();
                 const c = appState.getCell(pid, cid);
                 if(!c) return;
-                const n = prompt("NOVO NOME DA CÉLULA:", c.name);
+                const n = await uiPrompt("Renomear célula", "", c.name);
                 if(n && n !== c.name) { c.name = n; appState.saveProject(pid); ui.renderProject(pid); }
             },
-            renameRobot(e, pid, cid, rid) {
+            async renameRobot(e, pid, cid, rid) {
                 e.stopPropagation();
                 const r = appState.getRobot(pid, cid, rid);
                 if(!r) return;
-                const n = prompt("NOVO NOME DO ROBÔ:", r.name);
+                const n = await uiPrompt("Renomear robô", "", r.name);
                 if(n && n !== r.name) { r.name = n; appState.saveProject(pid); ui.renderCell(pid, cid); }
             },
             // skipConfirm: usado pelo swipe (arrastar + tocar em "Excluir" já é intenção
@@ -302,12 +330,12 @@
                 appState.save();
                 ui.renderSettings();
             },
-            editAppFilter(tid) {
+            async editAppFilter(tid) {
                  const t = state.defaultTasks.find(x => x.id === tid);
                  if(!t) return;
                  let filters = t.appFilters || t.apps || [];
                  let current = filters.length ? filters[0] : "Misto / Geral";
-                 const res = prompt(`SELECIONE A APLICAÇÃO DA TAREFA: \nDigite exatamente um dos filtros abaixo:\n[ Misto / Geral, Solda Ponto, Solda MIG, Handling, Sealing, Outros ]\n\nAtual: ${current}`, current);
+                 const res = await uiPrompt("Aplicação da tarefa", "Digite exatamente um dos filtros:\n[ Misto / Geral, Solda Ponto, Solda MIG, Handling, Sealing, Outros ]", current);
                  if(res) {
                      if(res === 'Misto / Geral' || res === 'Geral') t.appFilters = [];
                      else t.appFilters = [res];
