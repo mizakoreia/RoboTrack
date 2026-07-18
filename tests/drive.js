@@ -127,6 +127,23 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   ok('convite gravado em invites', await p.evaluate(()=>[...window.__fs.store.keys()].some(k=>/^invites\//.test(k))));
   ok('link único gerado com ?convite=', await p.evaluate(()=>{ const v=document.getElementById('invite-link-input').value; return v.includes('?convite='); }));
 
+  // 8b. GESTÃO DE EQUIPE (membros + convites pendentes)
+  await p.evaluate(()=>window.__fs.store.set('workspaces/uidOwner/members/uidAna', { email:'ana@vw.com', role:'view', inviteToken:'tk' }));
+  await p.evaluate(()=>uiActions.loadTeam());
+  await p.waitForTimeout(200);
+  ok('lista membros mostra Ana', await p.evaluate(()=>document.getElementById('ws-members-list').innerHTML.includes('ana@vw.com')));
+  ok('lista convites pendentes mostra e-mail', await p.evaluate(()=>document.getElementById('ws-invites-list').innerHTML.includes('ana@vw.com')));
+  await p.evaluate(()=>uiActions.setMemberRole('uidAna','edit'));
+  await p.waitForTimeout(150);
+  ok('trocar papel grava edit', await p.evaluate(()=>window.__fs.store.get('workspaces/uidOwner/members/uidAna').role==='edit'));
+  await p.evaluate(()=>uiActions.removeMember('uidAna'));
+  await p.waitForTimeout(150);
+  ok('remover membro apaga doc', await p.evaluate(()=>!window.__fs.store.has('workspaces/uidOwner/members/uidAna')));
+  const invTok = await p.evaluate(()=>[...window.__fs.store.keys()].find(k=>k.startsWith('invites/')).split('/')[1]);
+  await p.evaluate(t=>uiActions.revokeInvite(t), invTok);
+  await p.waitForTimeout(150);
+  ok('revogar convite apaga doc', await p.evaluate(()=>![...window.__fs.store.keys()].some(k=>k.startsWith('invites/'))));
+
   // 9. Permissão VIEW: força papel view e tenta editar -> bloqueado (nada grava)
   await p.evaluate(()=>{ window.currentRole='view'; document.body.dataset.role='view'; });
   const before = await p.evaluate(()=>window.__fs.log.length);

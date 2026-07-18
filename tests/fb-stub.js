@@ -66,14 +66,20 @@
       }
     };
   }
-  function colRef(path, _order, _limit){
+  function colRef(path, _order, _limit, _where){
+    function filterSnap(snap){
+      if(!_where) return snap;
+      const docs = snap.docs.filter(d => d.data()[_where[0]] === _where[2]);
+      return { empty: docs.length===0, docs, forEach: f=>docs.forEach(f) };
+    }
     return {
       _path: path, _order, _limit,
       doc(id){ return docRef(path + '/' + (id || ('auto_'+Math.random().toString(36).slice(2)))); },
       add(data){ const r = this.doc(); return r.set(data).then(()=>r); },
-      orderBy(f){ return colRef(path, f, _limit); },
-      limit(n){ return colRef(path, _order, n); },
-      get(){ return Promise.resolve(makeColSnap(path, _order, _limit)); },
+      orderBy(f){ return colRef(path, f, _limit, _where); },
+      limit(n){ return colRef(path, _order, n, _where); },
+      where(f, op, v){ return colRef(path, _order, _limit, [f, op, v]); },
+      get(){ return Promise.resolve(filterSnap(makeColSnap(path, _order, _limit))); },
       onSnapshot(cb, err){
         if(!colListeners.has(path)) colListeners.set(path, new Set());
         colListeners.get(path).add(cb);

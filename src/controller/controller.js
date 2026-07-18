@@ -38,6 +38,57 @@
                 document.getElementById('invite-link-wrap').style.display = 'none';
                 document.getElementById('invite-form-wrap').style.display = 'block';
                 document.getElementById('modal-invite').classList.add('active');
+                this.loadTeam();
+            },
+            // Gestão de equipe do MEU workspace: membros + convites pendentes
+            async loadTeam() {
+                const _db = window._fbDB, _user = window._fbAuth && window._fbAuth.currentUser;
+                const mEl = document.getElementById('ws-members-list');
+                const iEl = document.getElementById('ws-invites-list');
+                if (!_db || !_user) return;
+                try {
+                    const ms = await _db.collection('workspaces').doc(_user.uid).collection('members').get();
+                    mEl.innerHTML = ms.empty ? '<i style="color:var(--text-muted); font-size:0.8rem;">Só você por enquanto.</i>' :
+                        ms.docs.map(d => { const m = d.data(); return `
+                        <div class="team-row">
+                            <span class="team-mail">${sanitize(m.email || d.id)}</span>
+                            <select onchange="uiActions.setMemberRole('${d.id}', this.value)" style="width:auto; margin:0; font-size:0.78rem;">
+                                <option value="view" ${m.role==='view'?'selected':''}>Somente ver</option>
+                                <option value="edit" ${m.role==='edit'?'selected':''}>Ver e editar</option>
+                            </select>
+                            <button class="btn-icon" style="color:var(--danger)" title="Remover do workspace" onclick="uiActions.removeMember('${d.id}')">🗑️</button>
+                        </div>`; }).join('');
+                } catch(e) { mEl.innerHTML = '<i style="color:var(--danger); font-size:0.8rem;">Erro ao listar membros: ' + sanitize(e.message) + '</i>'; }
+                try {
+                    const inv = await _db.collection('invites').where('createdBy', '==', _user.uid).get();
+                    const pend = inv.docs.filter(d => !d.data().used);
+                    iEl.innerHTML = !pend.length ? '<i style="color:var(--text-muted); font-size:0.8rem;">Nenhum convite pendente.</i>' :
+                        pend.map(d => { const v = d.data(); const exp = v.expiresAt ? new Date(v.expiresAt).toLocaleDateString('pt-BR') : '—'; return `
+                        <div class="team-row">
+                            <span class="team-mail">${sanitize(v.email)} <small style="color:var(--text-muted)">(${v.role==='edit'?'editar':'ver'} · expira ${exp})</small></span>
+                            <button class="btn-icon" style="color:var(--danger)" title="Revogar convite" onclick="uiActions.revokeInvite('${d.id}')">🗑️</button>
+                        </div>`; }).join('');
+                } catch(e) { iEl.innerHTML = '<i style="color:var(--danger); font-size:0.8rem;">Erro ao listar convites: ' + sanitize(e.message) + '<br>Verifique se as regras do Firestore estão atualizadas.</i>'; }
+            },
+            async setMemberRole(uid, role) {
+                try {
+                    await window._fbDB.collection('workspaces').doc(window._fbAuth.currentUser.uid).collection('members').doc(uid).update({ role });
+                } catch(e) { alert('Erro ao mudar papel: ' + e.message); }
+                this.loadTeam();
+            },
+            async removeMember(uid) {
+                if (!confirm('Remover esta pessoa do seu workspace? Ela perde o acesso imediatamente.')) return;
+                try {
+                    await window._fbDB.collection('workspaces').doc(window._fbAuth.currentUser.uid).collection('members').doc(uid).delete();
+                } catch(e) { alert('Erro ao remover: ' + e.message); }
+                this.loadTeam();
+            },
+            async revokeInvite(token) {
+                if (!confirm('Revogar este convite? O link deixa de funcionar.')) return;
+                try {
+                    await window._fbDB.collection('invites').doc(token).delete();
+                } catch(e) { alert('Erro ao revogar: ' + e.message); }
+                this.loadTeam();
             },
             closeInviteModal() { document.getElementById('modal-invite').classList.remove('active'); },
             async createInvite() {
@@ -63,6 +114,7 @@
                     document.getElementById('invite-link-email').textContent = email;
                     document.getElementById('invite-form-wrap').style.display = 'none';
                     document.getElementById('invite-link-wrap').style.display = 'block';
+                    this.loadTeam();
                 } catch(e) {
                     alert('Erro ao criar convite: ' + (e && e.message) + '\n\nVerifique se você publicou as regras do Firestore para "invites".');
                 }

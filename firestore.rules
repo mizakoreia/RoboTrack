@@ -52,6 +52,8 @@ service cloud.firestore {
 
     match /invites/{token} {
       allow get:    if signedIn();
+      // Dono lista os próprios convites (query com where createdBy == uid)
+      allow list:   if signedIn() && request.auth.uid == resource.data.createdBy;
       // S-08 (mínimo): tipos e papéis restritos na criação.
       allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid
                      && request.resource.data.wsId == request.auth.uid
