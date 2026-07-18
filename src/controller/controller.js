@@ -197,6 +197,27 @@
                 document.getElementById('robot-step1').style.display = 'block';
             },
 
+            // Aplica a nova ordem (vinda do drag & drop) ao Model e persiste.
+            // 'ids' é a ordem dos data-id dos cards após soltar.
+            commitReorder(kind, ids) {
+                if (typeof canEdit === 'function' && !canEdit()) return;
+                const byOrder = (arr, key) => { const m = {}; arr.forEach(x => m[x[key]] = x);
+                    return ids.map(id => m[id]).filter(Boolean).concat(arr.filter(x => !ids.includes(x[key]))); };
+                if (kind === 'project') {
+                    state.projects = byOrder(state.projects, 'id');
+                    state.projects.forEach((p, i) => { if (p._ord !== i) { p._ord = i; appState.saveProject(p.id); } });
+                    ui.renderDashboard();
+                } else if (kind === 'cell') {
+                    const p = appState.getProject(activeContext.projectId); if (!p) return;
+                    p.cells = byOrder(p.cells, 'id');
+                    appState.saveProject(p.id); ui.renderProject(p.id);
+                } else if (kind === 'robot') {
+                    const c = appState.getCell(activeContext.projectId, activeContext.cellId); if (!c) return;
+                    c.robots = byOrder(c.robots, 'id');
+                    appState.saveProject(activeContext.projectId); ui.renderCell(activeContext.projectId, activeContext.cellId);
+                }
+            },
+
             confirmAddRobot() {
                 const appType = document.getElementById('sel-robot-app').value;
                 // Um nome por campo; ignora vazios e duplicatas na mesma leva.
@@ -626,7 +647,7 @@
             const W = 92; // largura de cada botão de ação
             let target = null, delEl = null, editEl = null, base = 0, startX = 0, startY = 0, axis = null, moved = false;
             function findTarget(t){
-                if (t.closest('select,input,button,a,.trail-cell,.action-btns')) return null;
+                if (t.closest('select,input,button,a,.trail-cell,.action-btns,.drag-handle')) return null;
                 return t.closest('.swipe-host > .card') || t.closest('#robot-tasks-table tbody tr:not(.cat-row)');
             }
             function closeAll(except){
@@ -685,6 +706,48 @@
                     setTimeout(() => t.removeEventListener('click', stop, true), 350);
                 }
             }, { passive: false });
+        })();
+
+        // ===== REORDENAR (arrastar a alça ⠿) =====
+        // Pointer events unificam mouse e toque. Reordena cards ao vivo e persiste no soltar.
+        (function(){
+            let dragging = null, container = null, kind = null, moved = false;
+            function afterEl(cont, y){
+                let best = null, bestOff = -Infinity;
+                cont.querySelectorAll(':scope > .swipe-host:not(.dragging-sort)').forEach(el => {
+                    const b = el.getBoundingClientRect(); const off = y - (b.top + b.height / 2);
+                    if (off < 0 && off > bestOff) { bestOff = off; best = el; }
+                });
+                return best;
+            }
+            document.addEventListener('pointerdown', function(e){
+                const h = e.target.closest('.drag-handle'); if (!h) return;
+                const host = h.closest('.swipe-host'); if (!host || !host.parentElement) return;
+                kind = host.parentElement.dataset.reorder; if (!kind) return;
+                if (typeof canEdit === 'function' && !canEdit()) return;
+                dragging = host; container = host.parentElement; moved = false;
+                host.classList.add('dragging-sort');
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+            document.addEventListener('pointermove', function(e){
+                if (!dragging) return;
+                e.preventDefault(); moved = true;
+                const a = afterEl(container, e.clientY);
+                if (a == null) container.appendChild(dragging); else container.insertBefore(dragging, a);
+            });
+            function endDrag(){
+                if (!dragging) return;
+                dragging.classList.remove('dragging-sort');
+                document.body.style.userSelect = '';
+                if (moved) {
+                    const ids = [...container.querySelectorAll(':scope > .swipe-host')].map(h => h.dataset.id);
+                    uiActions.commitReorder(kind, ids);
+                }
+                dragging = null; container = null; kind = null;
+            }
+            document.addEventListener('pointerup', endDrag);
+            document.addEventListener('pointercancel', endDrag);
         })();
 
         // Boot: mostra o dashboard; os dados chegam via Firebase (onAuthStateChanged).

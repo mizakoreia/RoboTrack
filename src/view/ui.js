@@ -56,8 +56,9 @@
                         (c.robots||[]).some(r => (r.name||'').toLowerCase().includes(q))));
                 if (q && !visible.length) { grid.innerHTML = `<div class="empty-state">Nada encontrado para "${sanitize(q)}".</div>`; return; }
 
+                grid.dataset.reorder = 'project';
                 grid.innerHTML = visible.map(p => `
-                    <div class="swipe-host">
+                    <div class="swipe-host" data-id="${p.id}">
                     <button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameProject(event, '${p.id}')"><span class="ico">✏️</span><span>Editar</span></button>
                     <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('project', '${p.id}')">
@@ -66,7 +67,7 @@
                             <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}')">🗑️</button>
                         </div>
                         <div class="card-header" style="flex-wrap:wrap; gap:6px;">
-                            <span style="display:flex;align-items:center;gap:6px">🏭 ${sanitize(p.name)}</span>
+                            <span style="display:flex;align-items:center;gap:6px"><span class="drag-handle" onclick="event.stopPropagation()" title="Arraste para reordenar">⠿</span> 🏭 ${sanitize(p.name)}</span>
                             <span class="badge" style="background:transparent; border:1px solid var(--border)">${p.cells.length} Células</span>
                         </div>
                         ${ui.buildCircle(appState.calcProjectProgress(p))}
@@ -114,8 +115,9 @@
                     </div>
                 `;
 
+                grid.dataset.reorder = 'cell';
                 grid.innerHTML = p.cells.map(c => `
-                    <div class="swipe-host">
+                    <div class="swipe-host" data-id="${c.id}">
                     <button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameCell(event, '${p.id}', '${c.id}')"><span class="ico">✏️</span><span>Editar</span></button>
                     <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('cell', '${p.id}', '${c.id}')">
@@ -124,7 +126,7 @@
                             <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}')">🗑️</button>
                         </div>
                         <div class="card-header" style="flex-wrap:wrap; gap:6px;">
-                            <span style="display:flex;align-items:center;gap:6px">📦 ${sanitize(c.name)}</span>
+                            <span style="display:flex;align-items:center;gap:6px"><span class="drag-handle" onclick="event.stopPropagation()" title="Arraste para reordenar">⠿</span> 📦 ${sanitize(c.name)}</span>
                             <span class="badge" style="background:transparent; border:1px solid var(--border)">${c.robots.length} Robôs</span>
                         </div>
                         ${ui.buildCircle(appState.calcCellProgress(c))}
@@ -170,8 +172,9 @@
                     </div>
                 `;
 
+                grid.dataset.reorder = 'robot';
                 grid.innerHTML = c.robots.map(r => `
-                    <div class="swipe-host">
+                    <div class="swipe-host" data-id="${r.id}">
                     <button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameRobot(event, '${pid}', '${c.id}', '${r.id}')"><span class="ico">✏️</span><span>Editar</span></button>
                     <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('robot', '${pid}', '${c.id}', '${r.id}')">
@@ -180,7 +183,7 @@
                             <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}')">🗑️</button>
                         </div>
                         <div class="card-header" style="flex-wrap:wrap; gap:6px;">
-                            <span style="display:flex;align-items:center;gap:6px">⚙️ ${sanitize(r.name)}</span>
+                            <span style="display:flex;align-items:center;gap:6px"><span class="drag-handle" onclick="event.stopPropagation()" title="Arraste para reordenar">⠿</span> ⚙️ ${sanitize(r.name)}</span>
                             <span class="badge andamento">${r.application || 'Misto / Geral'}</span>
                         </div>
                         ${ui.buildCircle(appState.calcRobotProgress(r))}
