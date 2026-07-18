@@ -556,7 +556,7 @@
         // Delegação global (sobrevive a re-render): arrastar um card/linha pra
         // esquerda revela o botão vermelho "Excluir". Reaproveita uiActions.delete*.
         (function(){
-            const OPEN = -88, THRESH = -60;
+            const OPEN = -92, THRESH = -46;
             let target = null, startX = 0, startY = 0, axis = null, moved = false;
             function findTarget(t){
                 if (t.closest('select,input,button,a,.trail-cell,.action-btns')) return null;
@@ -581,16 +581,22 @@
                     if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
                     axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
                     if (axis === 'y') { target = null; return; } // gesto vertical: deixa rolar
+                    target.classList.add('dragging'); // segue o dedo sem transição
                 }
                 e.preventDefault(); moved = true;
                 const base = target.classList.contains('swiped') ? OPEN : 0;
-                target.style.transform = 'translateX(' + Math.max(OPEN, Math.min(0, base + dx)) + 'px)';
+                let x = base + dx;
+                // resistência elástica além dos limites (efeito "borracha")
+                if (x < OPEN) x = OPEN + (x - OPEN) * 0.28;
+                else if (x > 0) x = x * 0.28;
+                target.style.transform = 'translateX(' + x + 'px)';
             }, { passive: false });
             document.addEventListener('touchend', function(e){
-                if (!target || axis !== 'x') { target = null; return; }
+                if (!target || axis !== 'x') { if (target) target.classList.remove('dragging'); target = null; return; }
                 const dx = e.changedTouches[0].clientX - startX;
                 const base = target.classList.contains('swiped') ? OPEN : 0;
                 const t = target; target = null;
+                t.classList.remove('dragging'); // reativa a transição p/ a soltura animar
                 t.style.transform = '';
                 if (base + dx <= THRESH) t.classList.add('swiped'); else t.classList.remove('swiped');
                 if (moved) { // impede que o arrasto vire clique de navegação
