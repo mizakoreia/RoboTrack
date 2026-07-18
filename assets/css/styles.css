@@ -103,6 +103,11 @@
         }
         .swipe-del .ico { font-size: 1.35rem; line-height: 1; }
         .swipe-del:active { filter: brightness(1.12); }
+        /* O card é semi-transparente: escondemos o vermelho em repouso p/ não transparecer.
+           Só aparece ao arrastar (.dragging) ou com o card aberto (.swiped). */
+        .swipe-del, .swipe-del-cell { opacity: 0; pointer-events: none; transition: opacity .12s; }
+        .swipe-host:has(> .card.dragging) .swipe-del,
+        .swipe-host:has(> .card.swiped) .swipe-del { opacity: 1; pointer-events: auto; }
         /* No desktop a linha de tarefa usa a lixeira da última coluna; a célula de swipe some */
         .swipe-del-cell { display: none; }
         .edit-btn { background: rgba(255, 255, 255, 0.1); color: #fff; }
@@ -194,7 +199,9 @@
             #robot-tasks-table tr:not(.cat-row) { position: relative; overflow: hidden; will-change: transform; transition: transform .2s; }
             #robot-tasks-table tr.swiped { transform: translateX(-88px); }
             .swipe-del-cell { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 88px; padding: 0 !important; }
-            .swipe-del-cell .swipe-del { border-radius: 0 10px 10px 0; }
+            .swipe-del-cell .swipe-del { border-radius: 0 10px 10px 0; opacity: inherit; }
+            #robot-tasks-table tr.dragging .swipe-del-cell,
+            #robot-tasks-table tr.swiped .swipe-del-cell { opacity: 1; pointer-events: auto; }
         }
 
         /* Permissão "somente leitura": esconde botões de edição e trava os controles */
