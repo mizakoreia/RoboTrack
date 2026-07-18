@@ -48,7 +48,15 @@
                     </div>
                 `;
 
-                grid.innerHTML = state.projects.map(p => `
+                // Busca: projeto entra se o nome dele, de uma célula ou de um robô casar
+                const q = (dashSearch || '').trim().toLowerCase();
+                const visible = !q ? state.projects : state.projects.filter(p =>
+                    (p.name||'').toLowerCase().includes(q) ||
+                    (p.cells||[]).some(c => (c.name||'').toLowerCase().includes(q) ||
+                        (c.robots||[]).some(r => (r.name||'').toLowerCase().includes(q))));
+                if (q && !visible.length) { grid.innerHTML = `<div class="empty-state">Nada encontrado para "${sanitize(q)}".</div>`; return; }
+
+                grid.innerHTML = visible.map(p => `
                     <div class="card" onclick="nav('project', '${p.id}')">
                         <div class="action-btns">
                             <button class="btn-icon" onclick="uiActions.renameProject(event, '${p.id}')">✏️</button>
@@ -241,6 +249,25 @@
                         <td><button class="btn-icon" style="color:var(--danger)" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td></tr>`;
                 });
                 tbody.innerHTML = html;
+            },
+            renderMyTasks() {
+                const el = document.getElementById('mytasks-list');
+                const me = window.currentUserName;
+                if (!me) { el.innerHTML = '<div class="empty-state">Faça login.</div>'; return; }
+                const rows = [];
+                (state.projects||[]).forEach(p => (p.cells||[]).forEach(c => (c.robots||[]).forEach(r => (r.tasks||[]).forEach(t => {
+                    if (t.resp === me && t.status !== 'Concluído' && t.status !== 'N/A')
+                        rows.push({ p, c, r, t });
+                }))));
+                if (!rows.length) { el.innerHTML = '<div class="empty-state">🎉 Nenhuma tarefa pendente atribuída a você.</div>'; return; }
+                el.innerHTML = `<div class="panel"><table><thead><tr><th>Tarefa</th><th>Robô</th><th>Célula · Projeto</th><th>Status</th><th style="text-align:right">%</th></tr></thead><tbody>` +
+                    rows.map(x => `<tr style="cursor:pointer" onclick="nav('robot','${x.p.id}','${x.c.id}','${x.r.id}')">
+                        <td>${sanitize(x.t.desc)}</td>
+                        <td>${sanitize(x.r.name)}</td>
+                        <td>${sanitize(x.c.name)} · ${sanitize(x.p.name)}</td>
+                        <td><span class="badge ${appState.getStatusStyle(x.t.status)}">${sanitize(x.t.status)}</span></td>
+                        <td style="text-align:right; font-family:monospace; font-weight:700">${x.t.progress||0}%</td>
+                    </tr>`).join('') + `</tbody></table></div>`;
             },
             // ===== RELATÓRIO: protocolo industrial de aceite =====
             renderReport() {
