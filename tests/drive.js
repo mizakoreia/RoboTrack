@@ -36,9 +36,11 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   ok('email no header', await p.evaluate(()=>document.getElementById('header-user-email').textContent.includes('rafael@vw.com')));
   ok('papel = Dono', await p.evaluate(()=>document.body.dataset.role==='owner'));
 
-  // 3. Criar projeto (prompt stub)
-  await p.evaluate(()=>{ window.prompt=()=> 'Projeto VW'; window.confirm=()=>true; window.alert=()=>{}; });
-  await p.evaluate(()=>uiActions.addProject());
+  // 3. Criar projeto (via modal uiPrompt — substitui o prompt() nativo)
+  await p.evaluate(()=>{ window.confirm=()=>true; window.alert=()=>{}; });
+  const fillPrompt = async (val) => { await p.waitForTimeout(60); await p.evaluate(v=>{ document.getElementById('prompt-input').value=v; document.getElementById('prompt-ok').click(); }, val); };
+  await p.evaluate(()=>{ uiActions.addProject(); });
+  await fillPrompt('Projeto VW');
   await p.waitForTimeout(200);
   ok('projeto no state', await p.evaluate(()=>state.projects.length===1 && state.projects[0].name==='Projeto VW'));
   ok('projeto gravado no Firestore (subcoleção projects)', await p.evaluate(()=>[...window.__fs.store.keys()].some(k=>/workspaces\/uidOwner\/projects\//.test(k))));
@@ -48,8 +50,8 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   const pid = await p.evaluate(()=>state.projects[0].id);
   await p.evaluate(id=>nav('project', id), pid);
   await p.waitForTimeout(80);
-  await p.evaluate(()=>{ window.prompt=()=>'Célula LD'; });
-  await p.evaluate(()=>uiActions.addCell());
+  await p.evaluate(()=>{ uiActions.addCell(); });
+  await fillPrompt('Célula LD');
   await p.waitForTimeout(150);
   ok('célula criada', await p.evaluate(()=>state.projects[0].cells.length===1));
 
