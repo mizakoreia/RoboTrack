@@ -206,6 +206,20 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
     return state.projects.length===before && !document.getElementById('dashboard-cards').innerHTML.includes('ZZ Temp Swipe');
   }));
 
+  // 9a4. REORDENAR (drag & drop) — testa a fiação commitReorder + persistência _ord
+  ok('cards têm alça de arraste + data-id', await p.evaluate(()=>{ const h=document.getElementById('dashboard-cards'); return h.dataset.reorder==='project' && h.innerHTML.includes('drag-handle') && !!h.querySelector('.swipe-host[data-id]'); }));
+  ok('reordenar aplica nova ordem e persiste _ord', await p.evaluate(()=>{
+    window.currentRole='owner';
+    const saved = []; const origSave = appState.saveProject; appState.saveProject = id => saved.push(id); // isola do sync do stub
+    const origProjects = state.projects; // preserva o estado real p/ os testes seguintes
+    state.projects=[{id:'ra',name:'A',cells:[],_ord:0},{id:'rb',name:'B',cells:[],_ord:1},{id:'rc',name:'C',cells:[],_ord:2}];
+    uiActions.commitReorder('project', ['rc','ra','rb']); // nova ordem: C, A, B
+    const ord = state.projects.map(p=>p.id).join(',');
+    const ords = state.projects.map(p=>p._ord).join(',');
+    appState.saveProject = origSave; state.projects = origProjects;
+    return ord==='rc,ra,rb' && ords==='0,1,2' && saved.includes('rc') && saved.includes('ra') && saved.includes('rb');
+  }));
+
   // 9b. RELATÓRIO (protocolo)
   await p.evaluate(()=>{ window.currentRole='owner'; document.body.dataset.role='owner'; nav('report'); });
   await p.waitForTimeout(120);

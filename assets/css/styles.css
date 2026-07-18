@@ -88,6 +88,13 @@
         .card:hover .action-btns { opacity: 1; }
         .action-btns button { padding: 6px; border-radius: 6px; }
 
+        /* Alça de arrastar p/ reordenar (⠿) */
+        .drag-handle { cursor: grab; touch-action: none; user-select: none; color: var(--text-muted); font-size: 1.1rem; line-height: 1; opacity: .5; padding: 0 2px; }
+        .drag-handle:hover { opacity: 1; }
+        .drag-handle:active { cursor: grabbing; }
+        .swipe-host.dragging-sort { opacity: .85; }
+        .swipe-host.dragging-sort > .card { outline: 2px solid var(--accent); outline-offset: -2px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); }
+
         /* Swipe bidirecional: arrasta p/ esquerda revela Excluir (direita);
            arrasta p/ direita revela Editar (esquerda). */
         .swipe-host { position: relative; overflow: hidden; border-radius: 16px; }
