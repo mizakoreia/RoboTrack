@@ -261,7 +261,8 @@
                                 <button class="btn-icon trail-btn" onclick="event.stopPropagation(); uiActions.openTaskHistory('${t.id}')">💬 ${hist.length}</button>
                             </div>
                         </td>
-                        <td style="white-space:nowrap"><button class="btn-icon" title="Editar tarefa" onclick="uiActions.renameTask('${t.id}')">✏️</button><button class="btn-icon" style="color:var(--danger)" title="Excluir tarefa" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td>
+                        <td class="task-actions" style="white-space:nowrap"><button class="btn-icon" title="Editar tarefa" onclick="uiActions.renameTask('${t.id}')">✏️</button><button class="btn-icon" style="color:var(--danger)" title="Excluir tarefa" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td>
+                        <td class="swipe-edit-cell"><button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameTask('${t.id}')"><span class="ico">✏️</span><span>Editar</span></button></td>
                         <td class="swipe-del-cell"><button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteTask('${t.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button></td></tr>`;
                 });
                 tbody.innerHTML = html;
