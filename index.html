@@ -60,7 +60,7 @@
         </div>
         
         <ul class="nav-list" id="nav-list" onclick="if(event.target.closest('.nav-item'))this.closest('.sidebar').classList.remove('nav-open')">
-            <li class="nav-item" id="nav-user-email" style="font-size:0.75rem;color:rgba(255,255,255,0.35);cursor:default;pointer-events:none;">—</li>
+            <li class="nav-item" id="nav-user-email" style="font-size:0.75rem;color:var(--text-muted);cursor:default;pointer-events:none;">—</li>
             <li class="nav-item" onclick="uiActions.openInviteModal()">➕ Adicionar usuário</li>
             <li class="nav-item" onclick="firebase.auth().signOut()" style="color:#fca5a5;font-weight:600;">🚪 Sair</li>
             <li class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard">

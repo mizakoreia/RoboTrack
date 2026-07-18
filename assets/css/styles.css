@@ -44,7 +44,7 @@
         .nav-item { padding: 10px 16px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-weight: 500; }
         .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
         .nav-item.active { background: rgba(59, 130, 246, 0.15); color: #fff; border-left: 3px solid var(--accent); }
-        .nav-group { margin-top: 16px; padding: 0 16px 8px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.3); font-weight: 700; }
+        .nav-group { margin-top: 16px; padding: 0 16px 8px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700; }
         #menu-toggle { display: none; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; width: 42px; height: 42px; font-size: 1.4rem; line-height: 1; color: var(--text-main); align-items: center; justify-content: center; }
 
         /* Main Content */
@@ -274,3 +274,13 @@
 /* --- Gestão de equipe (modal Adicionar usuário) --- */
 .team-row { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:8px; padding:6px 10px; }
 .team-mail { flex:1; font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* --- Acessibilidade: respeita preferência por menos movimento --- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
