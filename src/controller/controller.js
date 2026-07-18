@@ -671,9 +671,10 @@
                 if (!el) { target = null; return; }
                 target = el; axis = null; moved = false;
                 const isCard = el.classList.contains('card');
-                // Excluir (arrasta p/ esquerda, à direita) existe sempre; Editar (p/ direita) só nos cards
-                delEl  = isCard ? el.parentElement.querySelector('.swipe-del') : el.querySelector('.swipe-del-cell');
-                editEl = isCard ? el.parentElement.querySelector('.swipe-edit') : null;
+                // Excluir (arrasta p/ esquerda, à direita) e Editar (p/ direita, à esquerda)
+                // existem tanto nos cards quanto nas linhas de tarefa.
+                delEl  = isCard ? el.parentElement.querySelector('.swipe-del')  : el.querySelector('.swipe-del-cell');
+                editEl = isCard ? el.parentElement.querySelector('.swipe-edit') : el.querySelector('.swipe-edit-cell');
                 base = el.classList.contains('swiped-left') ? -W : el.classList.contains('swiped-right') ? W : 0;
                 startX = e.touches[0].clientX; startY = e.touches[0].clientY;
             }, { passive: true });
@@ -708,8 +709,9 @@
                 t.classList.remove('swiped-left', 'swiped-right');
                 if (x <= -W * 0.4) t.classList.add('swiped-left');
                 else if (ed && x >= W * 0.4) t.classList.add('swiped-right');
-                if (moved) { // impede que o arrasto vire clique de navegação
-                    const stop = ev => { ev.stopPropagation(); ev.preventDefault(); };
+                if (moved) { // impede que o arrasto vire clique de navegação —
+                    // mas deixa passar taps nos botões revelados (Editar/Excluir da linha)
+                    const stop = ev => { if (ev.target.closest('.swipe-del, .swipe-edit')) return; ev.stopPropagation(); ev.preventDefault(); };
                     t.addEventListener('click', stop, true);
                     setTimeout(() => t.removeEventListener('click', stop, true), 350);
                 }
