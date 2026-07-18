@@ -57,6 +57,8 @@
                 if (q && !visible.length) { grid.innerHTML = `<div class="empty-state">Nada encontrado para "${sanitize(q)}".</div>`; return; }
 
                 grid.innerHTML = visible.map(p => `
+                    <div class="swipe-host">
+                    <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}')">🗑️<span>Excluir</span></button>
                     <div class="card" onclick="nav('project', '${p.id}')">
                         <div class="action-btns">
                             <button class="btn-icon" onclick="uiActions.renameProject(event, '${p.id}')">✏️</button>
@@ -68,6 +70,7 @@
                         </div>
                         ${ui.buildCircle(appState.calcProjectProgress(p))}
                         <div class="card-footer"><span>Visão Macro</span> <span>Acessar ➔</span></div>
+                    </div>
                     </div>
                 `).join('');
             },
@@ -111,6 +114,8 @@
                 `;
 
                 grid.innerHTML = p.cells.map(c => `
+                    <div class="swipe-host">
+                    <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}')">🗑️<span>Excluir</span></button>
                     <div class="card" onclick="nav('cell', '${p.id}', '${c.id}')">
                         <div class="action-btns">
                             <button class="btn-icon" onclick="uiActions.renameCell(event, '${p.id}', '${c.id}')">✏️</button>
@@ -122,6 +127,7 @@
                         </div>
                         ${ui.buildCircle(appState.calcCellProgress(c))}
                         <div class="card-footer"><span>Status Global</span> <span>Acessar ➔</span></div>
+                    </div>
                     </div>
                 `).join('');
             },
@@ -163,6 +169,8 @@
                 `;
 
                 grid.innerHTML = c.robots.map(r => `
+                    <div class="swipe-host">
+                    <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}')">🗑️<span>Excluir</span></button>
                     <div class="card" onclick="nav('robot', '${pid}', '${c.id}', '${r.id}')">
                         <div class="action-btns">
                             <button class="btn-icon" onclick="uiActions.renameRobot(event, '${pid}', '${c.id}', '${r.id}')">✏️</button>
@@ -174,6 +182,7 @@
                         </div>
                         ${ui.buildCircle(appState.calcRobotProgress(r))}
                         <div class="card-footer"><span>${r.tasks ? r.tasks.length : 0} Tarefas</span> <span>Editar ➔</span></div>
+                    </div>
                     </div>
                 `).join('');
             },
@@ -246,7 +255,8 @@
                                 <button class="btn-icon trail-btn" onclick="event.stopPropagation(); uiActions.openTaskHistory('${t.id}')">💬 ${hist.length}</button>
                             </div>
                         </td>
-                        <td><button class="btn-icon" style="color:var(--danger)" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td></tr>`;
+                        <td><button class="btn-icon" style="color:var(--danger)" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td>
+                        <td class="swipe-del-cell"><button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteTask('${t.id}')">🗑️<span>Excluir</span></button></td></tr>`;
                 });
                 tbody.innerHTML = html;
             },

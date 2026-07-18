@@ -552,5 +552,54 @@
             window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
         }
 
+        // ===== SWIPE-PARA-EXCLUIR (mobile) =====
+        // Delegação global (sobrevive a re-render): arrastar um card/linha pra
+        // esquerda revela o botão vermelho "Excluir". Reaproveita uiActions.delete*.
+        (function(){
+            const OPEN = -88, THRESH = -60;
+            let target = null, startX = 0, startY = 0, axis = null, moved = false;
+            function findTarget(t){
+                if (t.closest('select,input,button,a,.trail-cell,.action-btns')) return null;
+                return t.closest('.swipe-host > .card') || t.closest('#robot-tasks-table tbody tr:not(.cat-row)');
+            }
+            function closeAll(except){
+                document.querySelectorAll('.swiped').forEach(el => { if (el !== except) el.classList.remove('swiped'); });
+            }
+            document.addEventListener('touchstart', function(e){
+                // tap no próprio botão vermelho: não fecha, deixa o clique deletar
+                if (e.target.closest('.swipe-del')) { target = null; return; }
+                const el = findTarget(e.target);
+                if (!el || !el.classList.contains('swiped')) closeAll(el);
+                if (!el) { target = null; return; }
+                target = el; axis = null; moved = false;
+                startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+            }, { passive: true });
+            document.addEventListener('touchmove', function(e){
+                if (!target) return;
+                const dx = e.touches[0].clientX - startX, dy = e.touches[0].clientY - startY;
+                if (axis === null) {
+                    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+                    axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+                    if (axis === 'y') { target = null; return; } // gesto vertical: deixa rolar
+                }
+                e.preventDefault(); moved = true;
+                const base = target.classList.contains('swiped') ? OPEN : 0;
+                target.style.transform = 'translateX(' + Math.max(OPEN, Math.min(0, base + dx)) + 'px)';
+            }, { passive: false });
+            document.addEventListener('touchend', function(e){
+                if (!target || axis !== 'x') { target = null; return; }
+                const dx = e.changedTouches[0].clientX - startX;
+                const base = target.classList.contains('swiped') ? OPEN : 0;
+                const t = target; target = null;
+                t.style.transform = '';
+                if (base + dx <= THRESH) t.classList.add('swiped'); else t.classList.remove('swiped');
+                if (moved) { // impede que o arrasto vire clique de navegação
+                    const stop = ev => { ev.stopPropagation(); ev.preventDefault(); };
+                    t.addEventListener('click', stop, true);
+                    setTimeout(() => t.removeEventListener('click', stop, true), 350);
+                }
+            }, { passive: false });
+        })();
+
         // Boot: mostra o dashboard; os dados chegam via Firebase (onAuthStateChanged).
         nav('dashboard');
