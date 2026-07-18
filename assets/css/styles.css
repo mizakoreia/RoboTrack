@@ -84,9 +84,17 @@
         
         .card-footer { font-size: 0.85rem; color: var(--text-muted); border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 12px; display: flex; justify-content: space-between; }
         
-        .action-btns { display: none; position: absolute; top: 12px; right: 12px; gap: 4px; }
-        .card:hover .action-btns { display: flex; }
+        .action-btns { display: flex; opacity: .35; transition: opacity .2s; position: absolute; top: 12px; right: 12px; gap: 4px; z-index: 2; }
+        .card:hover .action-btns { opacity: 1; }
         .action-btns button { padding: 6px; border-radius: 6px; }
+
+        /* Swipe-para-excluir: card desliza pra esquerda e revela o botão vermelho atrás */
+        .swipe-host { position: relative; overflow: hidden; border-radius: 16px; }
+        .swipe-host > .card { will-change: transform; transition: transform .2s; position: relative; z-index: 1; }
+        .swipe-host > .card.swiped { transform: translateX(-88px); }
+        .swipe-del { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; border: none; background: var(--danger); color: #fff; font-weight: 700; font-size: .8rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; z-index: 0; }
+        /* No desktop a linha de tarefa usa a lixeira da última coluna; a célula de swipe some */
+        .swipe-del-cell { display: none; }
         .edit-btn { background: rgba(255, 255, 255, 0.1); color: #fff; }
         .delete-btn { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
 
@@ -171,6 +179,12 @@
             #robot-tasks-table td { border-bottom: none; padding: 8px 12px; width: auto !important; }
             #robot-tasks-table tr:not(.cat-row) td:first-child { font-weight: 600; font-size: 0.95rem; padding-bottom: 2px; }
             #robot-tasks-table .slider-cont input[type="range"] { width: 100%; }
+
+            /* Swipe-para-excluir também nas tarefas (que já são cartões empilhados aqui) */
+            #robot-tasks-table tr:not(.cat-row) { position: relative; overflow: hidden; will-change: transform; transition: transform .2s; }
+            #robot-tasks-table tr.swiped { transform: translateX(-88px); }
+            .swipe-del-cell { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 88px; padding: 0 !important; }
+            .swipe-del-cell .swipe-del { border-radius: 0 10px 10px 0; }
         }
 
         /* Permissão "somente leitura": esconde botões de edição e trava os controles */

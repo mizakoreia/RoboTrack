@@ -171,6 +171,22 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   ok('minhas tarefas lista atribuída a mim', await p.evaluate(()=>document.getElementById('mytasks-list').innerHTML.includes('R01 KUKA')));
   ok('minhas tarefas exclui concluídas', await p.evaluate(()=>{ const html=document.getElementById('mytasks-list').innerHTML; const done=state.projects[0].cells[0].robots[0].tasks[1].desc; return !html.includes(done); }));
 
+  // 9a3. SWIPE-PARA-EXCLUIR (fiação; a física de toque é validada manualmente)
+  await p.evaluate(()=>{ const p=state.projects[0],c=p.cells[0],r=c.robots[0]; nav('robot',p.id,c.id,r.id); });
+  await p.waitForTimeout(120);
+  ok('swipe: linhas de tarefa têm célula de exclusão', await p.evaluate(()=>document.getElementById('robot-tasks-table').innerHTML.includes('swipe-del-cell')));
+  await p.evaluate(()=>{ nav('dashboard'); });
+  await p.waitForTimeout(120);
+  ok('swipe: cards do dashboard têm botão excluir', await p.evaluate(()=>{ const h=document.getElementById('dashboard-cards').innerHTML; return h.includes('swipe-host') && h.includes('swipe-del'); }));
+  ok('swipe-del remove o card e recalcula (some do total)', await p.evaluate(()=>{
+    const before = state.projects.length;
+    state.projects.push({ id:'tmp_del', name:'ZZ Temp Swipe', cells:[] });
+    ui.renderDashboard();
+    const host = [...document.querySelectorAll('.swipe-host')].find(h=>h.innerHTML.includes('ZZ Temp Swipe'));
+    host.querySelector('.swipe-del').click(); // window.confirm=>true
+    return state.projects.length===before && !document.getElementById('dashboard-cards').innerHTML.includes('ZZ Temp Swipe');
+  }));
+
   // 9b. RELATÓRIO (protocolo)
   await p.evaluate(()=>{ window.currentRole='owner'; document.body.dataset.role='owner'; nav('report'); });
   await p.waitForTimeout(120);
