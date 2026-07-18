@@ -4,6 +4,12 @@ on:
     branches: [main]
   pull_request:
 
+# Cancela runs antigos do mesmo branch/PR quando chega um push novo — evita
+# gastar minutos do Actions com execuções que já foram substituídas.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,6 +18,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # Cacheia o Chromium do Playwright para não rebaixar a cada run
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}
       - name: Install Playwright
         run: |
           npm install --no-save playwright
