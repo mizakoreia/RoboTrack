@@ -8,7 +8,13 @@
             buildCircle(pct) {
                 const dash = `${pct}, 100`; let color = "var(--warning)";
                 if(pct >= 100) color = "var(--success)"; else if (pct > 40) color = "var(--accent)";
-                return `<div class="progress-circle"><svg viewBox="0 0 36 36"><path class="bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="value" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke-dasharray="${dash}" style="stroke:${color};" /></svg><div class="text">${pct}%</div></div>`;
+                const ring = 'M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831';
+                // A 0% o traço é omitido: com stroke-linecap:round um dash de
+                // comprimento zero vira um ponto, sugerindo avanço que não existe.
+                const value = pct > 0
+                    ? `<path class="value" d="${ring}" stroke-dasharray="${dash}" style="stroke:${color};" />`
+                    : '';
+                return `<div class="progress-circle" role="img" aria-label="${pct}% concluído"><svg viewBox="0 0 36 36" aria-hidden="true"><path class="bg" d="${ring}" />${value}</svg><div class="text">${pct}%</div></div>`;
             },
             renderDashboard() {
                 const grid = document.getElementById('dashboard-cards');
@@ -41,7 +47,7 @@
                             <span>Robôs Analisados: <b>${totRobots}</b></span>
                             <span>Tarefas Processadas: <b><span style="color:var(--success)">${totDone}</span> / ${totTasks}</b></span>
                         </div>
-                        <div style="width:100%; height:12px; background:rgba(255,255,255,0.05); border-radius:6px; overflow:hidden;">
+                        <div style="width:100%; height:12px; background:var(--track); border-radius:6px; overflow:hidden;">
                             <div style="height:100%; background:var(--accent); width:${globalPct}%; transition:width 1s;"></div>
                         </div>
                         <div style="font-size:0.8rem; color:var(--text-muted); text-align:right; margin-top:8px;">${globalPct}% Progresso Físico Global</div>
@@ -62,13 +68,15 @@
                     <button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameProject(event, '${p.id}')"><span class="ico">✏️</span><span>Editar</span></button>
                     <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('project', '${p.id}')">
-                        <div class="action-btns">
-                            <button class="btn-icon" onclick="uiActions.renameProject(event, '${p.id}')">✏️</button>
-                            <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}')">🗑️</button>
-                        </div>
-                        <div class="card-header" style="flex-wrap:wrap; gap:6px;">
-                            <span style="display:flex;align-items:center;gap:6px"><span class="drag-handle" onclick="event.stopPropagation()" title="Arraste para reordenar">⠿</span> 🏭 ${sanitize(p.name)}</span>
-                            <span class="badge" style="background:transparent; border:1px solid var(--border)">${p.cells.length} Células</span>
+                        <div class="card-header">
+                            <div class="card-head-main">
+                                <span class="card-title"><span class="drag-handle" onclick="event.stopPropagation()" title="Arraste para reordenar">⠿</span> 🏭 ${sanitize(p.name)}</span>
+                                <span class="badge" style="background:transparent; border:1px solid var(--border)">${p.cells.length} Células</span>
+                            </div>
+                            <div class="action-btns">
+                                <button class="btn-icon" title="Renomear projeto" aria-label="Renomear projeto" onclick="uiActions.renameProject(event, '${p.id}')">✏️</button>
+                                <button class="btn-icon btn-icon-danger" title="Excluir projeto" aria-label="Excluir projeto" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}')">🗑️</button>
+                            </div>
                         </div>
                         ${ui.buildCircle(appState.calcProjectProgress(p))}
                         <div class="card-footer"><span>Visão Macro</span> <span>Acessar ➔</span></div>
@@ -108,7 +116,7 @@
                             <span>Robôs Analisados: <b>${totRobots}</b></span>
                             <span>Tarefas Processadas: <b><span style="color:var(--success)">${totDone}</span> / ${totTasks}</b></span>
                         </div>
-                        <div style="width:100%; height:12px; background:rgba(255,255,255,0.05); border-radius:6px; overflow:hidden;">
+                        <div style="width:100%; height:12px; background:var(--track); border-radius:6px; overflow:hidden;">
                             <div style="height:100%; background:var(--accent); width:${globalPct}%; transition:width 1s;"></div>
                         </div>
                         <div style="font-size:0.8rem; color:var(--text-muted); text-align:right; margin-top:8px;">${globalPct}% Progresso Físico do Projeto</div>
@@ -121,13 +129,15 @@
                     <button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameCell(event, '${p.id}', '${c.id}')"><span class="ico">✏️</span><span>Editar</span></button>
                     <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('cell', '${p.id}', '${c.id}')">
-                        <div class="action-btns">
-                            <button class="btn-icon" onclick="uiActions.renameCell(event, '${p.id}', '${c.id}')">✏️</button>
-                            <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}')">🗑️</button>
-                        </div>
-                        <div class="card-header" style="flex-wrap:wrap; gap:6px;">
-                            <span style="display:flex;align-items:center;gap:6px"><span class="drag-handle" onclick="event.stopPropagation()" title="Arraste para reordenar">⠿</span> 📦 ${sanitize(c.name)}</span>
-                            <span class="badge" style="background:transparent; border:1px solid var(--border)">${c.robots.length} Robôs</span>
+                        <div class="card-header">
+                            <div class="card-head-main">
+                                <span class="card-title"><span class="drag-handle" onclick="event.stopPropagation()" title="Arraste para reordenar">⠿</span> 📦 ${sanitize(c.name)}</span>
+                                <span class="badge" style="background:transparent; border:1px solid var(--border)">${c.robots.length} Robôs</span>
+                            </div>
+                            <div class="action-btns">
+                                <button class="btn-icon" title="Renomear célula" aria-label="Renomear célula" onclick="uiActions.renameCell(event, '${p.id}', '${c.id}')">✏️</button>
+                                <button class="btn-icon btn-icon-danger" title="Excluir célula" aria-label="Excluir célula" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}')">🗑️</button>
+                            </div>
                         </div>
                         ${ui.buildCircle(appState.calcCellProgress(c))}
                         <div class="card-footer"><span>Status Global</span> <span>Acessar ➔</span></div>
@@ -165,7 +175,7 @@
                             <span>Robôs Configurados: <b>${c.robots.length}</b></span>
                             <span>Tarefas Processadas: <b><span style="color:var(--success)">${totDone}</span> / ${totTasks}</b></span>
                         </div>
-                        <div style="width:100%; height:12px; background:rgba(255,255,255,0.05); border-radius:6px; overflow:hidden;">
+                        <div style="width:100%; height:12px; background:var(--track); border-radius:6px; overflow:hidden;">
                             <div style="height:100%; background:var(--accent); width:${globalPct}%; transition:width 1s;"></div>
                         </div>
                         <div style="font-size:0.8rem; color:var(--text-muted); text-align:right; margin-top:8px;">${globalPct}% Progresso Físico da Célula</div>
@@ -178,13 +188,15 @@
                     <button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameRobot(event, '${pid}', '${c.id}', '${r.id}')"><span class="ico">✏️</span><span>Editar</span></button>
                     <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('robot', '${pid}', '${c.id}', '${r.id}')">
-                        <div class="action-btns">
-                            <button class="btn-icon" onclick="uiActions.renameRobot(event, '${pid}', '${c.id}', '${r.id}')">✏️</button>
-                            <button class="btn-icon" style="color:var(--danger);" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}')">🗑️</button>
-                        </div>
-                        <div class="card-header" style="flex-wrap:wrap; gap:6px;">
-                            <span style="display:flex;align-items:center;gap:6px"><span class="drag-handle" onclick="event.stopPropagation()" title="Arraste para reordenar">⠿</span> ⚙️ ${sanitize(r.name)}</span>
-                            <span class="badge andamento">${r.application || 'Misto / Geral'}</span>
+                        <div class="card-header">
+                            <div class="card-head-main">
+                                <span class="card-title"><span class="drag-handle" onclick="event.stopPropagation()" title="Arraste para reordenar">⠿</span> ⚙️ ${sanitize(r.name)}</span>
+                                <span class="badge andamento">${r.application || 'Misto / Geral'}</span>
+                            </div>
+                            <div class="action-btns">
+                                <button class="btn-icon" title="Renomear robô" aria-label="Renomear robô" onclick="uiActions.renameRobot(event, '${pid}', '${c.id}', '${r.id}')">✏️</button>
+                                <button class="btn-icon btn-icon-danger" title="Excluir robô" aria-label="Excluir robô" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}')">🗑️</button>
+                            </div>
                         </div>
                         ${ui.buildCircle(appState.calcRobotProgress(r))}
                         <div class="card-footer"><span>${r.tasks ? r.tasks.length : 0} Tarefas</span> <span>Editar ➔</span></div>
@@ -259,7 +271,7 @@
                                 <button class="btn-icon trail-btn" onclick="event.stopPropagation(); uiActions.openTaskHistory('${t.id}')">💬 ${hist.length}</button>
                             </div>
                         </td>
-                        <td class="task-actions" style="white-space:nowrap"><button class="btn-icon" title="Editar tarefa" onclick="uiActions.renameTask('${t.id}')">✏️</button><button class="btn-icon" style="color:var(--danger)" title="Excluir tarefa" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td>
+                        <td class="task-actions" style="white-space:nowrap"><button class="btn-icon" title="Editar tarefa" aria-label="Editar tarefa" onclick="uiActions.renameTask('${t.id}')">✏️</button><button class="btn-icon btn-icon-danger" title="Excluir tarefa" aria-label="Excluir tarefa" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td>
                         <td class="swipe-edit-cell"><button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameTask('${t.id}')"><span class="ico">✏️</span><span>Editar</span></button></td>
                         <td class="swipe-del-cell"><button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteTask('${t.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button></td></tr>`;
                 });
@@ -394,7 +406,7 @@
                     const l = (filters.length > 0) ? filters.join(', ') : 'Geral (Todos)';
                     return `<tr><td style="color:var(--accent); font-weight:bold">${sanitize(t.cat)}</td><td>${sanitize(t.desc)}</td>
                     <td style="text-align:left"><button class="btn" style="padding:4px 8px; font-size:0.75rem; background:rgba(255,255,255,0.1); border-color:transparent;" onclick="uiActions.editAppFilter('${t.id}')">✏️ ${sanitize(l)}</button></td>
-                    <td style="text-align:right"><button class="btn-icon" style="color:var(--danger)" onclick="uiActions.deleteDefaultTask('${t.id}')">🗑️</button></td></tr>`;
+                    <td style="text-align:right"><button class="btn-icon btn-icon-danger" title="Excluir tarefa padrão" aria-label="Excluir tarefa padrão" onclick="uiActions.deleteDefaultTask('${t.id}')">🗑️</button></td></tr>`;
                 }).join('');
             }
         };

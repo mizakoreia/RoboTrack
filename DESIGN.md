@@ -20,6 +20,7 @@ Paleta em HEX/rgba (não OKLCH ainda). Papéis:
 | `--text-muted` | `#94a3b8` | `#475569` |
 | `--accent` (azul) | `#3b82f6` | `#2563eb` |
 | `--accent-glow` | `rgba(59,130,246,0.4)` | `rgba(37,99,235,0.2)` |
+| `--track` (trilha vazia de progresso) | `rgba(255,255,255,0.09)` | `rgba(15,23,42,0.12)` |
 
 Cores de status (semânticas, fixas entre temas): `--success #10b981` (concluído/verde), `--warning #f59e0b` (pendente/âmbar), `--accent #3b82f6` (em andamento/azul), `#a1a1aa` (N/A/cinza), `--danger #ef4444` (excluir/erro). Estratégia: **restrained** — neutros tintados de azul + um accent azul; status carrega a cor com significado, nunca decoração.
 
@@ -36,8 +37,9 @@ Cantos: 6–8px em controles, 12–16px em painéis/cards, pílulas (20px+) em f
 ## Components
 
 - **Sidebar / topbar**: navegação lateral no desktop; no mobile vira barra superior com logo + botão ☰ (hambúrguer) que abre menu vertical.
-- **Card** (`.card`): superfície de vidro, usada para projeto/célula na visão geral; hover eleva (`translateY(-4px)`) com glow do accent.
-- **Progress circle**: anel SVG (`stroke` accent sobre trilha translúcida) com % no centro — leitura de progresso à primeira vista.
+- **Card** (`.card`): superfície de vidro, usada para projeto/célula na visão geral; hover eleva (`translateY(-4px)`) com glow do accent. O `.card-header` é um grid de duas colunas — `[.card-head-main: nome + badge] | [.action-btns]` — para que as ações tenham coluna própria e nome/badge nunca passem por baixo dos ícones.
+- **Ações do card** (`.action-btns` + `.btn-icon`): editar/excluir no canto superior direito, discretos em repouso (`opacity .6`) e cheios no hover do card ou no foco de teclado. Alvo mínimo 32×32. Só desktop: ≤800px a ação vem pelo swipe. Variante `.btn-icon-danger` tinge o hover de vermelho (emoji não aceitam `color`).
+- **Progress circle**: anel SVG (`stroke` accent sobre trilha `--track`) com % no centro — leitura de progresso à primeira vista. O anel é desenhado com `<path>`, então o CSS precisa mirar `.progress-circle path`. A 0% o traço é omitido, senão o `stroke-linecap: round` deixa um ponto que sugere avanço inexistente.
 - **Panel + table**: tabela de tarefas do robô (descrição, status, progresso, responsável, obs). No mobile reflui para cartões empilhados (sem rolagem lateral).
 - **Status select** (`.status-select`): dropdown colorido por estado (pendente/andamento/concluído/na).
 - **Badge / resp-tag / filter-btn**: pílulas pequenas para metadados e filtros.
@@ -46,8 +48,8 @@ Cantos: 6–8px em controles, 12–16px em painéis/cards, pílulas (20px+) em f
 
 ## Motion
 
-Entrada de views com `viewEnter` (fade + scale sutil, curva ease-out). `successPulse` ao concluir tarefa (100%). Hover de card eleva. Sem bounce/elastic. **Pendência:** falta o par `@media (prefers-reduced-motion: reduce)` para as animações — adicionar crossfade/instantâneo.
+Entrada de views com `viewEnter` (fade + scale sutil, curva ease-out). `successPulse` ao concluir tarefa (100%). Hover de card eleva. Sem bounce/elastic. `@media (prefers-reduced-motion: reduce)` já zera animações e transições globalmente.
 
 ## Accessibility
 
-Meta viewport presente; tema claro/escuro; alvos de toque ampliados no mobile. Dívidas a fechar: contraste do muted em corpo pequeno, `prefers-reduced-motion`, e foco visível consistente por teclado. Alvo declarado: WCAG AA (ver PRODUCT.md).
+Meta viewport presente; tema claro/escuro; alvos de toque ampliados no mobile. `prefers-reduced-motion` respeitado. `.btn-icon` tem `:focus-visible` com outline do accent — o `button { outline: none }` global ainda apaga o foco dos demais controles. Dívidas a fechar: contraste do muted em corpo pequeno, foco visível nos outros controles, e contraste de `.nav-item.active` (texto `#fff` sobre fundo claro no tema light). Alvo declarado: WCAG AA (ver PRODUCT.md).
