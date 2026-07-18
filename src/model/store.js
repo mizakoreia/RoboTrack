@@ -26,18 +26,28 @@ const appState = {
         if (!canEdit()) { console.warn('[RoboTrack] gravação ignorada: somente leitura.'); return null; }
         return _db.collection('workspaces').doc(window.currentWsId || _auth.currentUser.uid);
     },
-    _ind(txt, keep) { const i = document.getElementById('save-indicator'); if (!i) return; i.textContent = txt; i.style.opacity = '1'; if (!keep) setTimeout(() => { i.style.opacity = '0'; }, 2000); },
-    _saveErr(e) { console.error('[RoboTrack] ❌ ERRO AO SALVAR:', e && e.code, e && e.message); alert('ERRO ao salvar: ' + (e && e.message) + '\n\nVerifique as regras do Firestore.'); this._ind('❌ Erro!', true); },
+    // Honestidade do estado: 'saving' | 'saved' | 'error'. A cor vem da classe,
+    // o ícone do sprite — nada de emoji, que não aceita `color`.
+    _IND: { saving: ['clock', 'Salvando…'], saved: ['check-circle', 'Salvo'], error: ['x-circle', 'Erro ao salvar'] },
+    _ind(stateName, keep) {
+        const i = document.getElementById('save-indicator'); if (!i) return;
+        const [ico, txt] = this._IND[stateName] || this._IND.saved;
+        i.dataset.state = stateName;
+        i.innerHTML = icon(ico) + '<span>' + txt + '</span>';
+        i.style.opacity = '1';
+        if (!keep) setTimeout(() => { i.style.opacity = '0'; }, 2000);
+    },
+    _saveErr(e) { console.error('[RoboTrack] ERRO AO SALVAR:', e && e.code, e && e.message); alert('ERRO ao salvar: ' + (e && e.message) + '\n\nVerifique as regras do Firestore.'); this._ind('error', true); },
     // Grava UM projeto (documento próprio) — concorrência isolada por projeto.
     saveProject(pid) {
         const wref = this._wsRef(); if (!wref) return;
         const p = this.getProject(pid); if (!p) return;
         if (p._ord == null) p._ord = Date.now();
-        this._ind('⏳ Salvando...', true);
+        this._ind('saving', true);
         wref.collection('projects').doc(pid).set({
             name: p.name, cells: p.cells || [], _ord: p._ord,
             _updatedBy: window.currentUserName || '', _updatedAt: new Date().toISOString()
-        }).then(() => this._ind('✅ Salvo')).catch(e => this._saveErr(e));
+        }).then(() => this._ind('saved')).catch(e => this._saveErr(e));
     },
     deleteProjectDoc(pid) {
         const wref = this._wsRef(); if (!wref) return;
@@ -46,13 +56,13 @@ const appState = {
     // Grava configurações do workspace (nome, templates, responsáveis, logs).
     saveSettings() {
         const wref = this._wsRef(); if (!wref) return;
-        this._ind('⏳ Salvando...', true);
+        this._ind('saving', true);
         wref.set({
             ownerUid: window.currentWsId || (window._fbAuth.currentUser && window._fbAuth.currentUser.uid),
             name: state.wsName || 'Meu Workspace',
             defaultTasks: state.defaultTasks, responsibles: state.responsibles,
             _updatedAt: new Date().toISOString()
-        }, { merge: true }).then(() => this._ind('✅ Salvo')).catch(e => this._saveErr(e));
+        }, { merge: true }).then(() => this._ind('saved')).catch(e => this._saveErr(e));
     },
     save() { this.saveSettings(); }, // compat: chamadas genéricas gravam as configurações
     getProject(pid) { return state.projects.find(p => p.id === pid); },

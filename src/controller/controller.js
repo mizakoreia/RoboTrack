@@ -55,7 +55,7 @@
                             const l = doc.data();
                             const when = l.tsLocal || (l.ts && l.ts.toDate ? l.ts.toDate().toLocaleString('pt-BR') : '');
                             const who = l.byName ? ' — ' + sanitize(l.byName) : '';
-                            return `<div style="background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:6px; font-size:0.8rem; display:flex; gap:12px;"><span style="color:var(--accent); white-space:nowrap;">[${sanitize(when)}]</span><span>${sanitize(l.msg)}${who}</span></div>`;
+                            return `<div class="log-entry"><span class="log-ts">${sanitize(when)}</span><span>${sanitize(l.msg)}${who}</span></div>`;
                         }).join('');
                     })
                     .catch(e => { list.innerHTML = "<i>Erro ao carregar registros: " + sanitize(e.message) + "</i>"; });
@@ -84,9 +84,9 @@
                                 <option value="view" ${m.role==='view'?'selected':''}>Somente ver</option>
                                 <option value="edit" ${m.role==='edit'?'selected':''}>Ver e editar</option>
                             </select>
-                            <button class="btn-icon" style="color:var(--danger)" title="Remover do workspace" onclick="uiActions.removeMember('${d.id}')">🗑️</button>
+                            <button class="btn-icon btn-icon-danger" title="Remover do workspace" aria-label="Remover do workspace" onclick="uiActions.removeMember('${d.id}')">${icon('trash')}</button>
                         </div>`; }).join('');
-                } catch(e) { mEl.innerHTML = '<i style="color:var(--danger); font-size:0.8rem;">Erro ao listar membros: ' + sanitize(e.message) + '</i>'; }
+                } catch(e) { mEl.innerHTML = '<i class="err-text">Erro ao listar membros: ' + sanitize(e.message) + '</i>'; }
                 try {
                     const inv = await _db.collection('invites').where('createdBy', '==', _user.uid).get();
                     const pend = inv.docs.filter(d => !d.data().used);
@@ -94,9 +94,9 @@
                         pend.map(d => { const v = d.data(); const exp = v.expiresAt ? new Date(v.expiresAt).toLocaleDateString('pt-BR') : '—'; return `
                         <div class="team-row">
                             <span class="team-mail">${sanitize(v.email)} <small style="color:var(--text-muted)">(${v.role==='edit'?'editar':'ver'} · expira ${exp})</small></span>
-                            <button class="btn-icon" style="color:var(--danger)" title="Revogar convite" onclick="uiActions.revokeInvite('${d.id}')">🗑️</button>
+                            <button class="btn-icon btn-icon-danger" title="Revogar convite" aria-label="Revogar convite" onclick="uiActions.revokeInvite('${d.id}')">${icon('trash')}</button>
                         </div>`; }).join('');
-                } catch(e) { iEl.innerHTML = '<i style="color:var(--danger); font-size:0.8rem;">Erro ao listar convites: ' + sanitize(e.message) + '<br>Verifique se as regras do Firestore estão atualizadas.</i>'; }
+                } catch(e) { iEl.innerHTML = '<i class="err-text">Erro ao listar convites: ' + sanitize(e.message) + '<br>Verifique se as regras do Firestore estão atualizadas.</i>'; }
             },
             async setMemberRole(uid, role) {
                 try {
@@ -151,7 +151,9 @@
                 const inp = document.getElementById('invite-link-input');
                 inp.select(); inp.setSelectionRange(0, 99999);
                 try { navigator.clipboard.writeText(inp.value); } catch(e){ try { document.execCommand('copy'); } catch(_){} }
-                const b = document.getElementById('btn-copy-link'); const t = b.textContent; b.textContent = '✅ Copiado!'; setTimeout(()=>{ b.textContent = t; }, 1500);
+                const b = document.getElementById('btn-copy-link'); const t = b.innerHTML;
+                b.innerHTML = icon('check') + ' Copiado!';
+                setTimeout(()=>{ b.innerHTML = t; }, 1500);
             },
             async addProject() {
                 const name = await uiPrompt("Novo Projeto", "Digite o nome do projeto (ex: Linha de Montagem A).");
@@ -552,7 +554,9 @@
         function nav(view, id1, id2, id3) {
             const views = document.querySelectorAll('.view');
             views.forEach(v => { v.classList.remove('active'); v.style.animation = 'none'; });
-            document.querySelectorAll('.nav-item').forEach(v => v.classList.remove('active'));
+            // O item de "Tarefas, equipe e filtros" vive no menu do usuário, então
+            // o estado ativo precisa ser limpo nos dois lugares.
+            document.querySelectorAll('.nav-item.active, .menu-item.active').forEach(v => v.classList.remove('active'));
             
             setTimeout(() => {
                 const vTarget = document.getElementById(`view-${view}`);
@@ -586,7 +590,9 @@
                     activeContext.robotId = id3;
                     ui.renderRobot(id1, id2, id3);
                 } else if (view === 'settings') {
-                    document.getElementById('nav-settings').classList.add('active');
+                    // "Tarefas, equipe e filtros" mora no menu do usuário, não na
+                    // lista de navegação — por isso o item pode não existir.
+                    const ns = document.getElementById('nav-settings'); if (ns) ns.classList.add('active');
                     ui.renderSettings();
                 } else if (view === 'report') {
                     const nr = document.getElementById('nav-report'); if (nr) nr.classList.add('active');
@@ -599,6 +605,237 @@
         }
 
         // --- END ROUTER ---
+
+
+        /* =====================================================================
+         * SHELL · uiChrome
+         * Tudo que envolve o conteúdo mas não é conteúdo: identidade do usuário,
+         * menus suspensos, tema, menu mobile e a luz que segue o cursor.
+         * Nenhuma regra de negócio mora aqui.
+         * ================================================================== */
+        const uiChrome = {
+
+            // ---------- Identidade nos três pontos do shell ----------
+            setUser(name, email) {
+                const display = (name || '').trim() || (email || '').split('@')[0] || 'Usuário';
+                const initials = display.split(/\s+/).slice(0, 2)
+                    .map(w => w[0]).join('').toUpperCase() || '?';
+                const put = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+                put('nav-user-name', display);
+                put('nav-user-email', email || '—');
+                put('topbar-name', display);
+                put('account-name', display);
+                put('header-user-email', email || '—');
+                ['nav-user-avatar', 'topbar-avatar', 'account-avatar'].forEach(id => put(id, initials));
+
+                // O e-mail some por ellipsis em telas estreitas; o title recupera.
+                const trig = document.getElementById('user-menu-trigger');
+                if (trig) trig.title = display + (email ? ' · ' + email : '');
+            },
+
+            // ---------- Menus suspensos ----------
+            // Vivem como filhos diretos do <body> e são posicionados em
+            // coordenadas de viewport: nenhum overflow do app pode cortá-los.
+            _openMenu: null,
+
+            bindMenu(triggerId, menuId, opts) {
+                const trigger = document.getElementById(triggerId);
+                const menu = document.getElementById(menuId);
+                if (!trigger || !menu) return;
+                const o = opts || {};
+
+                trigger.addEventListener('click', e => {
+                    e.stopPropagation();
+                    this._openMenu === menu ? this.closeMenu() : this.openMenu(menu, trigger, o);
+                });
+
+                // Escolher uma opção sempre fecha o menu. Os handlers inline dos
+                // itens já rodaram quando este listener (bubbling) dispara.
+                menu.addEventListener('click', e => {
+                    if (e.target.closest('.menu-item')) this.closeMenu();
+                });
+
+                // Setas percorrem os itens; Esc devolve o foco ao gatilho.
+                menu.addEventListener('keydown', e => {
+                    const items = [...menu.querySelectorAll('.menu-item')];
+                    const i = items.indexOf(document.activeElement);
+                    if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+                    else if (e.key === 'Escape') { e.preventDefault(); this.closeMenu(); trigger.focus(); }
+                });
+            },
+
+            openMenu(menu, trigger, o) {
+                this.closeMenu();
+
+                // Medir antes de posicionar: display sem animação e invisível,
+                // senão o menu aparece no canto errado por um frame.
+                menu.classList.add('measuring');
+                const t = trigger.getBoundingClientRect();
+                const w = menu.offsetWidth, h = menu.offsetHeight;
+                menu.classList.remove('measuring');
+
+                const gap = 8, pad = 10;
+                const vw = window.innerWidth, vh = window.innerHeight;
+
+                // Abre para cima quando o gatilho está no rodapé; vira para baixo
+                // se não couber (celular deitado, janela baixa).
+                let top, from;
+                if (o.up && t.top - h - gap >= pad) { top = t.top - h - gap; from = '6px'; }
+                else if (!o.up && t.bottom + h + gap <= vh - pad) { top = t.bottom + gap; from = '-6px'; }
+                else if (t.top - h - gap >= pad) { top = t.top - h - gap; from = '6px'; }
+                else { top = t.bottom + gap; from = '-6px'; }
+
+                let left = o.alignRight ? t.right - w : t.left;
+                left = Math.min(Math.max(pad, left), Math.max(pad, vw - w - pad));
+                top  = Math.min(Math.max(pad, top),  Math.max(pad, vh - h - pad));
+
+                menu.style.left = left + 'px';
+                menu.style.top = top + 'px';
+                menu.style.setProperty('--menu-from', from);
+                menu.classList.add('open');
+                trigger.setAttribute('aria-expanded', 'true');
+
+                this._openMenu = menu;
+                this._openTrigger = trigger;
+                const first = menu.querySelector('.menu-item');
+                if (first) first.focus();
+            },
+
+            closeMenu() {
+                const menu = this._openMenu;
+                if (!menu) return;
+                menu.classList.remove('open');
+                if (this._openTrigger) this._openTrigger.setAttribute('aria-expanded', 'false');
+                this._openMenu = this._openTrigger = null;
+            },
+
+            initMenus() {
+                this.bindMenu('user-menu-trigger', 'menu-workspace', { up: true });
+                this.bindMenu('account-trigger', 'menu-account', { alignRight: true });
+
+                document.addEventListener('click', () => this.closeMenu());
+                document.addEventListener('keydown', e => {
+                    if (e.key === 'Escape' && this._openMenu) {
+                        const t = this._openTrigger;
+                        this.closeMenu();
+                        if (t) t.focus();
+                    }
+                });
+                // Menu fixo + conteúdo rolando = menu flutuando solto. Fecha.
+                window.addEventListener('resize', () => this.closeMenu());
+                const main = document.querySelector('.main');
+                if (main) main.addEventListener('scroll', () => this.closeMenu(), { passive: true });
+            },
+
+            // ---------- Tema ----------
+            applyTheme(t) {
+                document.body.dataset.theme = t;
+                try { localStorage.setItem('rt-theme', t); } catch (e) {}
+
+                // A barra de status do PWA acompanha o tema do app.
+                const meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) meta.setAttribute('content', t === 'light' ? '#f1f5f9' : '#0a0f1d');
+
+                // O item de menu anuncia o destino, não o estado atual.
+                const ic = document.getElementById('theme-icon');
+                const lb = document.getElementById('theme-label');
+                if (ic) ic.innerHTML = '<use href="#i-' + (t === 'light' ? 'moon' : 'sun') + '"></use>';
+                if (lb) lb.textContent = t === 'light' ? 'Tema escuro' : 'Tema claro';
+            },
+
+            initTheme() {
+                let saved = null;
+                try { saved = localStorage.getItem('rt-theme'); } catch (e) {}
+                // Escuro é o modo primário do produto: é o que se lê sob luz de
+                // galpão. O claro só entra quando a pessoa pede — de propósito
+                // não seguimos o prefers-color-scheme do sistema.
+                this.applyTheme(saved === 'light' ? 'light' : 'dark');
+            },
+
+            // ---------- Menu mobile ----------
+            initNav() {
+                const sb = document.getElementById('sidebar');
+                const tg = document.getElementById('menu-toggle');
+                const list = document.getElementById('nav-list');
+                if (!sb || !tg) return;
+
+                tg.addEventListener('click', () => {
+                    tg.setAttribute('aria-expanded', sb.classList.toggle('nav-open') ? 'true' : 'false');
+                });
+                // No celular o menu é uma gaveta: escolher um destino fecha.
+                if (list) list.addEventListener('click', e => {
+                    if (!e.target.closest('.nav-item')) return;
+                    sb.classList.remove('nav-open');
+                    tg.setAttribute('aria-expanded', 'false');
+                });
+            },
+
+            // ---------- Luz que segue o cursor ----------
+            // Uma única fonte de luz em coordenadas de viewport. O CSS a lê em
+            // --lx/--ly; todas as superfícies de vidro consultam a MESMA posição,
+            // então a luz atravessa o app como um corpo só.
+            initLight() {
+                const root = document.documentElement;
+                let x = window.innerWidth * 0.38, y = window.innerHeight * 0.10;
+                let tx = x, ty = y, raf = 0;
+
+                const apply = () => {
+                    root.style.setProperty('--lx', x.toFixed(1) + 'px');
+                    root.style.setProperty('--ly', y.toFixed(1) + 'px');
+                };
+                apply(); // posição de repouso: a luz existe antes de qualquer gesto
+
+                // Sem cursor (toque) ou com movimento reduzido, a luz fica parada.
+                // O visual continua completo; só não se move.
+                const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+                const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (!fine || still) return;
+
+                // Interpolação: a luz tem inércia e chega atrasada, como massa.
+                // É isso que separa "gradiente colado no mouse" de luz de verdade.
+                //
+                // Escrever --lx/--ly invalida TODA superfície de vidro de uma vez,
+                // então gravamos no máximo a ~33ms (30fps) em vez de a cada frame.
+                // Com a inércia, o olho não vê a diferença — mas o repaint cai
+                // pela metade num dashboard cheio de cards.
+                const WRITE_MS = 32;
+                let lastWrite = 0;
+                const tick = () => {
+                    x += (tx - x) * 0.11;
+                    y += (ty - y) * 0.11;
+                    const now = performance.now();
+                    const settled = Math.abs(tx - x) <= 0.4 && Math.abs(ty - y) <= 0.4;
+                    if (settled || now - lastWrite >= WRITE_MS) { apply(); lastWrite = now; }
+                    raf = settled ? 0 : requestAnimationFrame(tick);
+                };
+
+                window.addEventListener('pointermove', e => {
+                    if (e.pointerType === 'touch') return;
+                    tx = e.clientX; ty = e.clientY;
+                    if (!raf) raf = requestAnimationFrame(tick);
+                }, { passive: true });
+
+                // Fora da janela a luz volta devagar para o repouso, em vez de
+                // congelar onde o cursor saiu.
+                document.addEventListener('mouseleave', () => {
+                    tx = window.innerWidth * 0.38; ty = window.innerHeight * 0.10;
+                    if (!raf) raf = requestAnimationFrame(tick);
+                });
+            },
+
+            init() {
+                this.initTheme();
+                this.initNav();
+                this.initMenus();
+                this.initLight();
+            }
+        };
+
+        function toggleTheme() {
+            uiChrome.applyTheme(document.body.dataset.theme === 'light' ? 'dark' : 'light');
+        }
 
 
         // "Manter conectado": LOCAL persiste entre sessões (padrão), SESSION expira ao
@@ -670,10 +907,7 @@
                 // BUG-10 FIX: iOS Safari exige visibility+pointerEvents além de display:none
                 const _ls = document.getElementById('login-screen');
                 _ls.style.display = 'none'; _ls.style.visibility = 'hidden'; _ls.style.pointerEvents = 'none';
-                const el = document.getElementById('nav-user-email');
-                if (el) el.textContent = '👤 ' + (user.displayName || user.email);
-                const hu = document.getElementById('header-user-email');
-                if (hu) hu.textContent = '👤 ' + user.email;
+                uiChrome.setUser(user.displayName || '', user.email || '');
                 await _loadMyWorkspaces(user);
                 const invited = await _consumePendingInvite(user);
                 // Workspace inicial: o recém-convidado; senão o próprio; senão o primeiro.
@@ -803,5 +1037,7 @@
             document.addEventListener('pointercancel', endDrag);
         })();
 
-        // Boot: mostra o dashboard; os dados chegam via Firebase (onAuthStateChanged).
+        // Boot: monta o shell (tema, menus, luz) e mostra o dashboard; os dados
+        // chegam depois via Firebase (onAuthStateChanged).
+        uiChrome.init();
         nav('dashboard');
