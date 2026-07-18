@@ -166,17 +166,43 @@
                 }
             },
             openModalAddRobot() {
-                document.getElementById('inp-robot-name').value = '';
+                // Volta sempre ao passo 1 (quantidade + aplicação)
+                document.getElementById('robot-step1').style.display = 'block';
+                document.getElementById('robot-step2').style.display = 'none';
+                document.getElementById('inp-robot-qty').value = 1;
+                document.getElementById('robot-names').innerHTML = '';
                 document.getElementById('modal-add-robot').classList.add('active');
             },
             closeModal() { document.getElementById('modal-add-robot').classList.remove('active'); },
-            
+
+            // Passo 1 -> 2: gera um campo de nome por robô
+            robotStep2() {
+                let qty = parseInt(document.getElementById('inp-robot-qty').value, 10);
+                if(!qty || qty < 1) qty = 1;
+                if(qty > 50) qty = 50;
+                const wrap = document.getElementById('robot-names');
+                wrap.innerHTML = '';
+                for(let i = 1; i <= qty; i++) {
+                    const inp = document.createElement('input');
+                    inp.type = 'text'; inp.className = 'robot-name-inp'; inp.style.width = '100%';
+                    inp.placeholder = 'Robô ' + i + ' (ex: R' + String(i).padStart(2,'0') + ' - Solda)';
+                    wrap.appendChild(inp);
+                }
+                document.getElementById('robot-step1').style.display = 'none';
+                document.getElementById('robot-step2').style.display = 'block';
+                const first = wrap.querySelector('input'); if(first) setTimeout(()=>first.focus(), 30);
+            },
+            robotBack() {
+                document.getElementById('robot-step2').style.display = 'none';
+                document.getElementById('robot-step1').style.display = 'block';
+            },
+
             confirmAddRobot() {
-                const raw = document.getElementById('inp-robot-name').value;
                 const appType = document.getElementById('sel-robot-app').value;
-                // Um robô por linha; ignora linhas em branco e duplicatas na mesma leva.
-                const names = [...new Set(raw.split('\n').map(s => s.trim()).filter(Boolean))];
-                if(!names.length) return alert("Digite ao menos um nome de robô.");
+                // Um nome por campo; ignora vazios e duplicatas na mesma leva.
+                const names = [...new Set([...document.querySelectorAll('#robot-names .robot-name-inp')]
+                    .map(el => el.value.trim()).filter(Boolean))];
+                if(!names.length) return alert("Dê um nome para ao menos um robô.");
 
                 const c = appState.getCell(activeContext.projectId, activeContext.cellId);
                 // Quais tarefas-base se aplicam a esta aplicação (mesmo p/ todos os robôs).
@@ -503,15 +529,22 @@
         // --- END ROUTER ---
 
 
+        // "Manter conectado": LOCAL persiste entre sessões (padrão), SESSION expira ao
+        // fechar o navegador. Aplica antes de qualquer sign-in.
+        function _applyPersistence() {
+            const rem = document.getElementById('auth-remember');
+            const mode = (!rem || rem.checked) ? 'LOCAL' : 'SESSION';
+            return auth.setPersistence(firebase.auth.Auth.Persistence[mode]).catch(()=>{});
+        }
         function authLogin() {
             const e = document.getElementById('auth-email').value.trim();
             const p = document.getElementById('auth-pass').value;
             if (!e || !p) return _authErr('Preencha email e senha.');
-            auth.signInWithEmailAndPassword(e, p).catch(err => _authErr(err.message));
+            _applyPersistence().then(() => auth.signInWithEmailAndPassword(e, p)).catch(err => _authErr(err.message));
         }
         function authGoogle() {
             const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider).catch(err => _authErr(err.message));
+            _applyPersistence().then(() => auth.signInWithPopup(provider)).catch(err => _authErr(err.message));
         }
         let authMode = 'login'; // 'login' | 'register'
         function toggleAuthMode() {
@@ -530,7 +563,8 @@
             if (!n) return _authErr('Preencha seu nome.');
             if (!e || !p) return _authErr('Preencha email e senha.');
             if (p.length < 6) return _authErr('Senha mínimo 6 caracteres.');
-            auth.createUserWithEmailAndPassword(e, p)
+            _applyPersistence()
+                .then(() => auth.createUserWithEmailAndPassword(e, p))
                 .then(cred => cred.user.updateProfile({ displayName: n }))
                 .catch(err => _authErr(err.message));
         }
