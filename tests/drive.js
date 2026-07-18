@@ -94,6 +94,12 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   ok('tarefa concluída persistida', await p.evaluate(()=>state.projects[0].cells[0].robots[0].tasks[0].status==='Concluído'));
   ok('log append-only gravado', await p.evaluate(()=>[...window.__fs.store.keys()].some(k=>/workspaces\/uidOwner\/logs\//.test(k))));
   ok('progresso do robô calculado', await p.evaluate(()=>appState.calcRobotProgress(state.projects[0].cells[0].robots[0])>0));
+  // Editar tarefa: botão ✏️ presente e renomeia a descrição via modal
+  ok('tarefa tem botões editar + excluir', await p.evaluate(()=>{ const h=document.getElementById('robot-tasks-table').innerHTML; return h.includes('renameTask') && h.includes('deleteTask'); }));
+  await p.evaluate(id=>{ uiActions.renameTask(id); }, tid);
+  await fillPrompt('Base instalada (revisada)');
+  await p.waitForTimeout(150);
+  ok('editar tarefa altera a descrição', await p.evaluate(()=>state.projects[0].cells[0].robots[0].tasks[0].desc==='Base instalada (revisada)'));
 
   // 7. Abrir modal de logs -> lê coleção
   await p.evaluate(()=>uiActions.openLogsModal());
