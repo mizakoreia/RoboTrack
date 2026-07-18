@@ -58,6 +58,7 @@
 
                 grid.innerHTML = visible.map(p => `
                     <div class="swipe-host">
+                    <button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameProject(event, '${p.id}')"><span class="ico">✏️</span><span>Editar</span></button>
                     <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('project', '${p.id}')">
                         <div class="action-btns">
@@ -115,6 +116,7 @@
 
                 grid.innerHTML = p.cells.map(c => `
                     <div class="swipe-host">
+                    <button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameCell(event, '${p.id}', '${c.id}')"><span class="ico">✏️</span><span>Editar</span></button>
                     <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('cell', '${p.id}', '${c.id}')">
                         <div class="action-btns">
@@ -170,6 +172,7 @@
 
                 grid.innerHTML = c.robots.map(r => `
                     <div class="swipe-host">
+                    <button class="swipe-edit" onclick="event.stopPropagation(); uiActions.renameRobot(event, '${pid}', '${c.id}', '${r.id}')"><span class="ico">✏️</span><span>Editar</span></button>
                     <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('robot', '${pid}', '${c.id}', '${r.id}')">
                         <div class="action-btns">

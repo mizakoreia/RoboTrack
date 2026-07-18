@@ -172,26 +172,24 @@
             closeModal() { document.getElementById('modal-add-robot').classList.remove('active'); },
             
             confirmAddRobot() {
-                const name = document.getElementById('inp-robot-name').value;
+                const raw = document.getElementById('inp-robot-name').value;
                 const appType = document.getElementById('sel-robot-app').value;
-                if(!name) return alert("Digite o nome do robô.");
-                
+                // Um robô por linha; ignora linhas em branco e duplicatas na mesma leva.
+                const names = [...new Set(raw.split('\n').map(s => s.trim()).filter(Boolean))];
+                if(!names.length) return alert("Digite ao menos um nome de robô.");
+
                 const c = appState.getCell(activeContext.projectId, activeContext.cellId);
-                const rTasks = [];
-                
-                if(state.defaultTasks) {
-                    state.defaultTasks.forEach(dt => {
-                        let filters = dt.appFilters || dt.apps || [];
-                        let ok = (filters.length === 0 || filters.includes('Misto / Geral') || filters.includes('Todas'));
-                        if(!ok && filters.includes(appType)) ok = true;
-                        
-                        if(ok) {
-                            rTasks.push({ id: getUUID(), cat: dt.cat || "Extra", desc: dt.desc, weight: 1, progress: 0, status: "Pendente", resp: "Não Atribuído", obs: "" });
-                        }
-                    });
-                }
-                
-                c.robots.push({ id: getUUID(), name: name, application: appType, tasks: rTasks });
+                // Quais tarefas-base se aplicam a esta aplicação (mesmo p/ todos os robôs).
+                const templates = (state.defaultTasks || []).filter(dt => {
+                    const filters = dt.appFilters || dt.apps || [];
+                    return filters.length === 0 || filters.includes('Misto / Geral') || filters.includes('Todas') || filters.includes(appType);
+                });
+
+                names.forEach(name => {
+                    const rTasks = templates.map(dt => ({ id: getUUID(), cat: dt.cat || "Extra", desc: dt.desc, weight: 1, progress: 0, status: "Pendente", resp: "Não Atribuído", obs: "" }));
+                    c.robots.push({ id: getUUID(), name, application: appType, tasks: rTasks });
+                });
+
                 appState.saveProject(activeContext.projectId);
                 this.closeModal();
                 ui.renderCell(activeContext.projectId, activeContext.cellId);
@@ -582,30 +580,33 @@
             window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
         }
 
-        // ===== SWIPE-PARA-EXCLUIR (mobile) =====
-        // Delegação global (sobrevive a re-render): arrastar um card/linha pra
-        // esquerda revela o botão vermelho "Excluir". Reaproveita uiActions.delete*.
+        // ===== SWIPE (mobile) =====
+        // Delegação global (sobrevive a re-render): arrastar um card/linha pra esquerda
+        // revela as ações (Editar/Excluir nos cards, Excluir nas tarefas).
         (function(){
-            const OPEN = -92, THRESH = -46;
-            let target = null, reveal = null, startX = 0, startY = 0, axis = null, moved = false;
+            const W = 92; // largura de cada botão de ação
+            let target = null, delEl = null, editEl = null, base = 0, startX = 0, startY = 0, axis = null, moved = false;
             function findTarget(t){
                 if (t.closest('select,input,button,a,.trail-cell,.action-btns')) return null;
                 return t.closest('.swipe-host > .card') || t.closest('#robot-tasks-table tbody tr:not(.cat-row)');
             }
-            function revealEl(el){ // o vermelho que aparece ao arrastar este alvo
-                return el.classList.contains('card') ? el.parentElement.querySelector('.swipe-del')
-                                                     : el.querySelector('.swipe-del-cell');
-            }
             function closeAll(except){
-                document.querySelectorAll('.swiped').forEach(el => { if (el !== except) el.classList.remove('swiped'); });
+                document.querySelectorAll('.swiped-left, .swiped-right').forEach(el => {
+                    if (el !== except) { el.classList.remove('swiped-left', 'swiped-right'); }
+                });
             }
             document.addEventListener('touchstart', function(e){
-                // tap no próprio botão vermelho: não fecha, deixa o clique deletar
-                if (e.target.closest('.swipe-del')) { target = null; return; }
+                // tap num botão de ação: não fecha, deixa o clique agir
+                if (e.target.closest('.swipe-del, .swipe-edit, .swipe-del-cell')) { target = null; return; }
                 const el = findTarget(e.target);
-                if (!el || !el.classList.contains('swiped')) closeAll(el);
+                if (!el || !(el.classList.contains('swiped-left') || el.classList.contains('swiped-right'))) closeAll(el);
                 if (!el) { target = null; return; }
-                target = el; reveal = revealEl(el); axis = null; moved = false;
+                target = el; axis = null; moved = false;
+                const isCard = el.classList.contains('card');
+                // Excluir (arrasta p/ esquerda, à direita) existe sempre; Editar (p/ direita) só nos cards
+                delEl  = isCard ? el.parentElement.querySelector('.swipe-del') : el.querySelector('.swipe-del-cell');
+                editEl = isCard ? el.parentElement.querySelector('.swipe-edit') : null;
+                base = el.classList.contains('swiped-left') ? -W : el.classList.contains('swiped-right') ? W : 0;
                 startX = e.touches[0].clientX; startY = e.touches[0].clientY;
             }, { passive: true });
             document.addEventListener('touchmove', function(e){
@@ -615,28 +616,30 @@
                     if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
                     axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
                     if (axis === 'y') { target = null; return; } // gesto vertical: deixa rolar
-                    target.classList.add('dragging'); // segue o dedo sem transição
-                    if (reveal) reveal.style.transition = 'none';
+                    target.classList.add('dragging');
+                    if (delEl) delEl.style.transition = 'none';
+                    if (editEl) editEl.style.transition = 'none';
                 }
                 e.preventDefault(); moved = true;
-                const base = target.classList.contains('swiped') ? OPEN : 0;
                 let x = base + dx;
-                // resistência elástica além dos limites (efeito "borracha")
-                if (x < OPEN) x = OPEN + (x - OPEN) * 0.28;
-                else if (x > 0) x = x * 0.28;
+                const min = -W, max = editEl ? W : 0; // sem Editar (tarefas), não desliza p/ direita
+                if (x < min) x = min + (x - min) * 0.28;      // resistência elástica
+                else if (x > max) x = max + (x - max) * 0.28;
                 target.style.transform = 'translateX(' + x + 'px)';
-                // vermelho surge proporcional ao quanto foi arrastado
-                if (reveal) reveal.style.opacity = Math.min(1, Math.abs(x) / Math.abs(OPEN));
+                // cada lado surge proporcional ao arraste na sua direção
+                if (delEl)  delEl.style.opacity  = x < 0 ? Math.min(1, -x / W) : 0;
+                if (editEl) editEl.style.opacity = x > 0 ? Math.min(1,  x / W) : 0;
             }, { passive: false });
             document.addEventListener('touchend', function(e){
                 if (!target || axis !== 'x') { if (target) target.classList.remove('dragging'); target = null; return; }
-                const dx = e.changedTouches[0].clientX - startX;
-                const base = target.classList.contains('swiped') ? OPEN : 0;
-                const t = target, rv = reveal; target = null; reveal = null;
-                t.classList.remove('dragging'); // reativa a transição p/ a soltura animar
-                t.style.transform = '';
-                if (rv) { rv.style.transition = ''; rv.style.opacity = ''; } // deixa o CSS (.swiped) assumir
-                if (base + dx <= THRESH) t.classList.add('swiped'); else t.classList.remove('swiped');
+                const x = base + (e.changedTouches[0].clientX - startX);
+                const t = target, d = delEl, ed = editEl; target = null;
+                t.classList.remove('dragging'); t.style.transform = '';
+                if (d)  { d.style.transition = '';  d.style.opacity = ''; }   // deixa o CSS assumir o estado
+                if (ed) { ed.style.transition = ''; ed.style.opacity = ''; }
+                t.classList.remove('swiped-left', 'swiped-right');
+                if (x <= -W * 0.4) t.classList.add('swiped-left');
+                else if (ed && x >= W * 0.4) t.classList.add('swiped-right');
                 if (moved) { // impede que o arrasto vire clique de navegação
                     const stop = ev => { ev.stopPropagation(); ev.preventDefault(); };
                     t.addEventListener('click', stop, true);

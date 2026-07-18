@@ -88,25 +88,29 @@
         .card:hover .action-btns { opacity: 1; }
         .action-btns button { padding: 6px; border-radius: 6px; }
 
-        /* Swipe-para-excluir: card desliza pra esquerda e revela o botão vermelho atrás */
+        /* Swipe bidirecional: arrasta p/ esquerda revela Excluir (direita);
+           arrasta p/ direita revela Editar (esquerda). */
         .swipe-host { position: relative; overflow: hidden; border-radius: 16px; }
         .swipe-host > .card { will-change: transform; transition: transform .38s cubic-bezier(.22,1,.36,1); position: relative; z-index: 1; }
-        .swipe-host > .card.swiped { transform: translateX(-92px); }
+        .swipe-host > .card.swiped-left  { transform: translateX(-92px); }
+        .swipe-host > .card.swiped-right { transform: translateX(92px); }
         /* Durante o arraste, sem transição: o card segue o dedo em tempo real */
         .swipe-host > .card.dragging, #robot-tasks-table tr.dragging { transition: none !important; }
-        .swipe-del {
-            position: absolute; top: 0; right: 0; bottom: 0; width: 92px;
-            border: none; border-radius: 0 16px 16px 0; cursor: pointer; z-index: 0;
-            background: linear-gradient(90deg, #b91c1c 0%, var(--danger) 55%);
-            color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: .02em;
+        /* Botões de ação (compartilham o visual) */
+        .swipe-del, .swipe-edit {
+            position: absolute; top: 0; bottom: 0; width: 92px; z-index: 0;
+            border: none; cursor: pointer; color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: .02em;
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
         }
-        .swipe-del .ico { font-size: 1.35rem; line-height: 1; }
-        .swipe-del:active { filter: brightness(1.12); }
-        /* O card é semi-transparente: escondemos o vermelho em repouso p/ não transparecer.
-           Durante o arraste o JS ajusta a opacidade proporcional; aberto (.swiped) fica cheio. */
-        .swipe-del, .swipe-del-cell { opacity: 0; pointer-events: none; transition: opacity .12s; }
-        .swipe-host:has(> .card.swiped) .swipe-del { opacity: 1; pointer-events: auto; }
+        .swipe-del  { right: 0; border-radius: 0 16px 16px 0; background: linear-gradient(90deg, #b91c1c 0%, var(--danger) 55%); }
+        .swipe-edit { left: 0;  border-radius: 16px 0 0 16px; background: #2563eb; }
+        .swipe-del .ico, .swipe-edit .ico { font-size: 1.3rem; line-height: 1; }
+        .swipe-del:active, .swipe-edit:active { filter: brightness(1.12); }
+        /* O card é semi-transparente: escondemos as ações em repouso p/ não transparecer.
+           Durante o arraste o JS ajusta a opacidade proporcional; aberto fica cheio. */
+        .swipe-del, .swipe-edit, .swipe-del-cell { opacity: 0; pointer-events: none; transition: opacity .12s; }
+        .swipe-host:has(> .card.swiped-left)  .swipe-del  { opacity: 1; pointer-events: auto; }
+        .swipe-host:has(> .card.swiped-right) .swipe-edit { opacity: 1; pointer-events: auto; }
         /* No desktop a linha de tarefa usa a lixeira da última coluna; a célula de swipe some */
         .swipe-del-cell { display: none; }
         .edit-btn { background: rgba(255, 255, 255, 0.1); color: #fff; }
@@ -194,13 +198,17 @@
             #robot-tasks-table tr:not(.cat-row) td:first-child { font-weight: 600; font-size: 0.95rem; padding-bottom: 2px; }
             #robot-tasks-table .slider-cont input[type="range"] { width: 100%; }
 
-            /* Swipe-para-excluir também nas tarefas (que já são cartões empilhados aqui) */
+            /* Ícones de editar/excluir do canto são só p/ desktop (hover); no mobile
+               a ação vem pelo swipe, então some p/ não poluir o card */
+            .action-btns { display: none !important; }
+
+            /* Swipe-para-excluir também nas tarefas (só Excluir, arrastando p/ esquerda) */
             #robot-tasks-table tr:not(.cat-row) { position: relative; overflow: hidden; will-change: transform; transition: transform .38s cubic-bezier(.22,1,.36,1); }
-            #robot-tasks-table tr.swiped { transform: translateX(-88px); }
+            #robot-tasks-table tr.swiped-left { transform: translateX(-88px); }
             .swipe-del-cell { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 88px; padding: 0 !important; }
             /* A célula gate a opacidade; o botão fica sempre opaco p/ não somar transparências */
-            .swipe-del-cell .swipe-del { border-radius: 0 10px 10px 0; opacity: 1; }
-            #robot-tasks-table tr.swiped .swipe-del-cell { opacity: 1; pointer-events: auto; }
+            .swipe-del-cell .swipe-del { width: 100%; height: 100%; border-radius: 0 10px 10px 0; opacity: 1; }
+            #robot-tasks-table tr.swiped-left .swipe-del-cell { opacity: 1; pointer-events: auto; }
         }
 
         /* Permissão "somente leitura": esconde botões de edição e trava os controles */
