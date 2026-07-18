@@ -88,25 +88,30 @@
         .card:hover .action-btns { opacity: 1; }
         .action-btns button { padding: 6px; border-radius: 6px; }
 
-        /* Swipe-para-excluir: card desliza pra esquerda e revela o botão vermelho atrás */
+        /* Swipe: card desliza pra esquerda e revela as ações (Editar + Excluir) atrás */
         .swipe-host { position: relative; overflow: hidden; border-radius: 16px; }
         .swipe-host > .card { will-change: transform; transition: transform .38s cubic-bezier(.22,1,.36,1); position: relative; z-index: 1; }
-        .swipe-host > .card.swiped { transform: translateX(-92px); }
+        .swipe-host > .card.swiped { transform: translateX(-160px); }
         /* Durante o arraste, sem transição: o card segue o dedo em tempo real */
         .swipe-host > .card.dragging, #robot-tasks-table tr.dragging { transition: none !important; }
-        .swipe-del {
-            position: absolute; top: 0; right: 0; bottom: 0; width: 92px;
-            border: none; border-radius: 0 16px 16px 0; cursor: pointer; z-index: 0;
-            background: linear-gradient(90deg, #b91c1c 0%, var(--danger) 55%);
-            color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: .02em;
+        /* Botões de ação (compartilham o visual; o container define o tamanho) */
+        .swipe-del, .swipe-edit {
+            border: none; cursor: pointer; color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: .02em;
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
         }
-        .swipe-del .ico { font-size: 1.35rem; line-height: 1; }
-        .swipe-del:active { filter: brightness(1.12); }
-        /* O card é semi-transparente: escondemos o vermelho em repouso p/ não transparecer.
+        .swipe-del { background: linear-gradient(90deg, #b91c1c 0%, var(--danger) 55%); }
+        .swipe-edit { background: #2563eb; }
+        .swipe-del .ico, .swipe-edit .ico { font-size: 1.3rem; line-height: 1; }
+        .swipe-del:active, .swipe-edit:active { filter: brightness(1.12); }
+        .swipe-actions {
+            position: absolute; top: 0; right: 0; bottom: 0; width: 160px; z-index: 0;
+            display: flex; border-radius: 0 16px 16px 0; overflow: hidden;
+        }
+        .swipe-actions button { flex: 1; }
+        /* O card é semi-transparente: escondemos as ações em repouso p/ não transparecer.
            Durante o arraste o JS ajusta a opacidade proporcional; aberto (.swiped) fica cheio. */
-        .swipe-del, .swipe-del-cell { opacity: 0; pointer-events: none; transition: opacity .12s; }
-        .swipe-host:has(> .card.swiped) .swipe-del { opacity: 1; pointer-events: auto; }
+        .swipe-actions, .swipe-del-cell { opacity: 0; pointer-events: none; transition: opacity .12s; }
+        .swipe-host:has(> .card.swiped) .swipe-actions { opacity: 1; pointer-events: auto; }
         /* No desktop a linha de tarefa usa a lixeira da última coluna; a célula de swipe some */
         .swipe-del-cell { display: none; }
         .edit-btn { background: rgba(255, 255, 255, 0.1); color: #fff; }
@@ -194,12 +199,16 @@
             #robot-tasks-table tr:not(.cat-row) td:first-child { font-weight: 600; font-size: 0.95rem; padding-bottom: 2px; }
             #robot-tasks-table .slider-cont input[type="range"] { width: 100%; }
 
+            /* Ícones de editar/excluir do canto são só p/ desktop (hover); no mobile
+               a ação vem pelo swipe, então some p/ não poluir o card */
+            .action-btns { display: none !important; }
+
             /* Swipe-para-excluir também nas tarefas (que já são cartões empilhados aqui) */
             #robot-tasks-table tr:not(.cat-row) { position: relative; overflow: hidden; will-change: transform; transition: transform .38s cubic-bezier(.22,1,.36,1); }
             #robot-tasks-table tr.swiped { transform: translateX(-88px); }
             .swipe-del-cell { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 88px; padding: 0 !important; }
             /* A célula gate a opacidade; o botão fica sempre opaco p/ não somar transparências */
-            .swipe-del-cell .swipe-del { border-radius: 0 10px 10px 0; opacity: 1; }
+            .swipe-del-cell .swipe-del { width: 100%; height: 100%; border-radius: 0 10px 10px 0; opacity: 1; }
             #robot-tasks-table tr.swiped .swipe-del-cell { opacity: 1; pointer-events: auto; }
         }
 

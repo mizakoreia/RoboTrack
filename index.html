@@ -261,12 +261,12 @@
     <!-- MODAL ADD ROBOT -->
     <div class="modal-overlay" id="modal-add-robot">
         <div class="modal-content">
-            <h2 class="modal-title">Novo Robô</h2>
-            <p class="modal-desc">As tarefas geradas vão depender da classe do robô selecionada.</p>
-            
-            <label class="form-label">Nome do Robô</label>
-            <input type="text" id="inp-robot-name" placeholder="Ex: R01 - Solda Lateral">
-            
+            <h2 class="modal-title">Novo(s) Robô(s)</h2>
+            <p class="modal-desc">Digite um robô por linha para cadastrar vários de uma vez. As tarefas geradas dependem da aplicação selecionada (aplicada a todos).</p>
+
+            <label class="form-label">Nome do Robô <span style="color:var(--text-muted); font-weight:400">(um por linha)</span></label>
+            <textarea id="inp-robot-name" rows="4" placeholder="R01 - Solda Lateral&#10;R02 - Handling&#10;R03 - Sealing" style="width:100%; resize:vertical; font-family:inherit;"></textarea>
+
             <label class="form-label" style="margin-top:12px">Aplicação</label>
             <select id="sel-robot-app" style="margin-bottom:24px">
                 <option value="Misto / Geral">Misto / Geral</option>

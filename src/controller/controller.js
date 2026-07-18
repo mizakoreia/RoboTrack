@@ -172,26 +172,24 @@
             closeModal() { document.getElementById('modal-add-robot').classList.remove('active'); },
             
             confirmAddRobot() {
-                const name = document.getElementById('inp-robot-name').value;
+                const raw = document.getElementById('inp-robot-name').value;
                 const appType = document.getElementById('sel-robot-app').value;
-                if(!name) return alert("Digite o nome do robô.");
-                
+                // Um robô por linha; ignora linhas em branco e duplicatas na mesma leva.
+                const names = [...new Set(raw.split('\n').map(s => s.trim()).filter(Boolean))];
+                if(!names.length) return alert("Digite ao menos um nome de robô.");
+
                 const c = appState.getCell(activeContext.projectId, activeContext.cellId);
-                const rTasks = [];
-                
-                if(state.defaultTasks) {
-                    state.defaultTasks.forEach(dt => {
-                        let filters = dt.appFilters || dt.apps || [];
-                        let ok = (filters.length === 0 || filters.includes('Misto / Geral') || filters.includes('Todas'));
-                        if(!ok && filters.includes(appType)) ok = true;
-                        
-                        if(ok) {
-                            rTasks.push({ id: getUUID(), cat: dt.cat || "Extra", desc: dt.desc, weight: 1, progress: 0, status: "Pendente", resp: "Não Atribuído", obs: "" });
-                        }
-                    });
-                }
-                
-                c.robots.push({ id: getUUID(), name: name, application: appType, tasks: rTasks });
+                // Quais tarefas-base se aplicam a esta aplicação (mesmo p/ todos os robôs).
+                const templates = (state.defaultTasks || []).filter(dt => {
+                    const filters = dt.appFilters || dt.apps || [];
+                    return filters.length === 0 || filters.includes('Misto / Geral') || filters.includes('Todas') || filters.includes(appType);
+                });
+
+                names.forEach(name => {
+                    const rTasks = templates.map(dt => ({ id: getUUID(), cat: dt.cat || "Extra", desc: dt.desc, weight: 1, progress: 0, status: "Pendente", resp: "Não Atribuído", obs: "" }));
+                    c.robots.push({ id: getUUID(), name, application: appType, tasks: rTasks });
+                });
+
                 appState.saveProject(activeContext.projectId);
                 this.closeModal();
                 ui.renderCell(activeContext.projectId, activeContext.cellId);
@@ -582,30 +580,30 @@
             window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
         }
 
-        // ===== SWIPE-PARA-EXCLUIR (mobile) =====
-        // Delegação global (sobrevive a re-render): arrastar um card/linha pra
-        // esquerda revela o botão vermelho "Excluir". Reaproveita uiActions.delete*.
+        // ===== SWIPE (mobile) =====
+        // Delegação global (sobrevive a re-render): arrastar um card/linha pra esquerda
+        // revela as ações (Editar/Excluir nos cards, Excluir nas tarefas).
         (function(){
-            const OPEN = -92, THRESH = -46;
-            let target = null, reveal = null, startX = 0, startY = 0, axis = null, moved = false;
+            let target = null, reveal = null, open = -160, startX = 0, startY = 0, axis = null, moved = false;
             function findTarget(t){
                 if (t.closest('select,input,button,a,.trail-cell,.action-btns')) return null;
                 return t.closest('.swipe-host > .card') || t.closest('#robot-tasks-table tbody tr:not(.cat-row)');
             }
-            function revealEl(el){ // o vermelho que aparece ao arrastar este alvo
-                return el.classList.contains('card') ? el.parentElement.querySelector('.swipe-del')
+            function revealEl(el){ // container das ações reveladas ao arrastar este alvo
+                return el.classList.contains('card') ? el.parentElement.querySelector('.swipe-actions')
                                                      : el.querySelector('.swipe-del-cell');
             }
             function closeAll(except){
                 document.querySelectorAll('.swiped').forEach(el => { if (el !== except) el.classList.remove('swiped'); });
             }
             document.addEventListener('touchstart', function(e){
-                // tap no próprio botão vermelho: não fecha, deixa o clique deletar
-                if (e.target.closest('.swipe-del')) { target = null; return; }
+                // tap num botão de ação: não fecha, deixa o clique agir
+                if (e.target.closest('.swipe-actions, .swipe-del-cell')) { target = null; return; }
                 const el = findTarget(e.target);
                 if (!el || !el.classList.contains('swiped')) closeAll(el);
                 if (!el) { target = null; return; }
                 target = el; reveal = revealEl(el); axis = null; moved = false;
+                open = -((reveal && reveal.offsetWidth) || 160); // largura real das ações
                 startX = e.touches[0].clientX; startY = e.touches[0].clientY;
             }, { passive: true });
             document.addEventListener('touchmove', function(e){
@@ -619,24 +617,24 @@
                     if (reveal) reveal.style.transition = 'none';
                 }
                 e.preventDefault(); moved = true;
-                const base = target.classList.contains('swiped') ? OPEN : 0;
+                const base = target.classList.contains('swiped') ? open : 0;
                 let x = base + dx;
                 // resistência elástica além dos limites (efeito "borracha")
-                if (x < OPEN) x = OPEN + (x - OPEN) * 0.28;
+                if (x < open) x = open + (x - open) * 0.28;
                 else if (x > 0) x = x * 0.28;
                 target.style.transform = 'translateX(' + x + 'px)';
-                // vermelho surge proporcional ao quanto foi arrastado
-                if (reveal) reveal.style.opacity = Math.min(1, Math.abs(x) / Math.abs(OPEN));
+                // ações surgem proporcional ao quanto foi arrastado
+                if (reveal) reveal.style.opacity = Math.min(1, Math.abs(x) / Math.abs(open));
             }, { passive: false });
             document.addEventListener('touchend', function(e){
                 if (!target || axis !== 'x') { if (target) target.classList.remove('dragging'); target = null; return; }
                 const dx = e.changedTouches[0].clientX - startX;
-                const base = target.classList.contains('swiped') ? OPEN : 0;
+                const base = target.classList.contains('swiped') ? open : 0;
                 const t = target, rv = reveal; target = null; reveal = null;
                 t.classList.remove('dragging'); // reativa a transição p/ a soltura animar
                 t.style.transform = '';
                 if (rv) { rv.style.transition = ''; rv.style.opacity = ''; } // deixa o CSS (.swiped) assumir
-                if (base + dx <= THRESH) t.classList.add('swiped'); else t.classList.remove('swiped');
+                if (base + dx <= open * 0.4) t.classList.add('swiped'); else t.classList.remove('swiped');
                 if (moved) { // impede que o arrasto vire clique de navegação
                     const stop = ev => { ev.stopPropagation(); ev.preventDefault(); };
                     t.addEventListener('click', stop, true);

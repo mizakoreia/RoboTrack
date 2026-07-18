@@ -67,6 +67,15 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   await p.waitForTimeout(150);
   ok('robô criado com tarefas do template', await p.evaluate(()=>{ const r=state.projects[0].cells[0].robots[0]; return r && r.name==='R01 KUKA' && r.tasks.length>0; }));
 
+  // 5b. Vários robôs de uma vez (textarea, um por linha; ignora vazias/duplicadas)
+  await p.evaluate(()=>{
+    document.getElementById('inp-robot-name').value='R02 Handling\n\nR03 Sealing\nR03 Sealing';
+    document.getElementById('sel-robot-app').value='Handling';
+    uiActions.confirmAddRobot();
+  });
+  await p.waitForTimeout(150);
+  ok('múltiplos robôs criados de uma vez (sem duplicar)', await p.evaluate(()=>{ const rs=state.projects[0].cells[0].robots.map(r=>r.name); return rs.includes('R02 Handling') && rs.includes('R03 Sealing') && rs.filter(n=>n==='R03 Sealing').length===1 && rs.length===3; }));
+
   // 6. Entrar no robô, concluir 1ª tarefa -> progresso + log + save
   const rid = await p.evaluate(()=>state.projects[0].cells[0].robots[0].id);
   await p.evaluate(a=>nav('robot', a.pid, a.cid, a.rid), {pid,cid,rid});
@@ -179,7 +188,7 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   ok('swipe: linhas de tarefa têm célula de exclusão', await p.evaluate(()=>document.getElementById('robot-tasks-table').innerHTML.includes('swipe-del-cell')));
   await p.evaluate(()=>{ nav('dashboard'); });
   await p.waitForTimeout(120);
-  ok('swipe: cards do dashboard têm botão excluir', await p.evaluate(()=>{ const h=document.getElementById('dashboard-cards').innerHTML; return h.includes('swipe-host') && h.includes('swipe-del'); }));
+  ok('swipe: cards do dashboard têm ações Editar + Excluir', await p.evaluate(()=>{ const h=document.getElementById('dashboard-cards').innerHTML; return h.includes('swipe-host') && h.includes('swipe-edit') && h.includes('swipe-del'); }));
   ok('swipe-del remove o card e recalcula (some do total)', await p.evaluate(()=>{
     const before = state.projects.length;
     state.projects.push({ id:'tmp_del', name:'ZZ Temp Swipe', cells:[] });
