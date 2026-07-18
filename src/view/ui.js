@@ -58,7 +58,7 @@
 
                 grid.innerHTML = visible.map(p => `
                     <div class="swipe-host">
-                    <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}')"><span class="ico">🗑️</span><span>Excluir</span></button>
+                    <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteProject('${p.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('project', '${p.id}')">
                         <div class="action-btns">
                             <button class="btn-icon" onclick="uiActions.renameProject(event, '${p.id}')">✏️</button>
@@ -115,7 +115,7 @@
 
                 grid.innerHTML = p.cells.map(c => `
                     <div class="swipe-host">
-                    <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}')"><span class="ico">🗑️</span><span>Excluir</span></button>
+                    <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteCell('${p.id}', '${c.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('cell', '${p.id}', '${c.id}')">
                         <div class="action-btns">
                             <button class="btn-icon" onclick="uiActions.renameCell(event, '${p.id}', '${c.id}')">✏️</button>
@@ -170,7 +170,7 @@
 
                 grid.innerHTML = c.robots.map(r => `
                     <div class="swipe-host">
-                    <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}')"><span class="ico">🗑️</span><span>Excluir</span></button>
+                    <button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteRobot('${pid}', '${c.id}', '${r.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button>
                     <div class="card" onclick="nav('robot', '${pid}', '${c.id}', '${r.id}')">
                         <div class="action-btns">
                             <button class="btn-icon" onclick="uiActions.renameRobot(event, '${pid}', '${c.id}', '${r.id}')">✏️</button>
@@ -256,7 +256,7 @@
                             </div>
                         </td>
                         <td><button class="btn-icon" style="color:var(--danger)" onclick="uiActions.deleteTask('${t.id}')">🗑️</button></td>
-                        <td class="swipe-del-cell"><button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteTask('${t.id}')"><span class="ico">🗑️</span><span>Excluir</span></button></td></tr>`;
+                        <td class="swipe-del-cell"><button class="swipe-del" onclick="event.stopPropagation(); uiActions.deleteTask('${t.id}', true)"><span class="ico">🗑️</span><span>Excluir</span></button></td></tr>`;
                 });
                 tbody.innerHTML = html;
             },

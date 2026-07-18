@@ -202,17 +202,19 @@
                 const n = prompt("NOVO NOME DO ROBÔ:", r.name);
                 if(n && n !== r.name) { r.name = n; appState.saveProject(pid); ui.renderCell(pid, cid); }
             },
-            deleteProject(pid) {
-                if(confirm("Remover este PROJETO e tudo dentro dele?")) { state.projects = state.projects.filter(p => p.id !== pid); appState.deleteProjectDoc(pid); ui.renderDashboard(); }
+            // skipConfirm: usado pelo swipe (arrastar + tocar em "Excluir" já é intenção
+            // clara, e alguns navegadores como o Brave bloqueiam confirm() repetido).
+            deleteProject(pid, skipConfirm) {
+                if(skipConfirm || confirm("Remover este PROJETO e tudo dentro dele?")) { state.projects = state.projects.filter(p => p.id !== pid); appState.deleteProjectDoc(pid); ui.renderDashboard(); }
             },
-            deleteCell(pid, cid) {
-                if(confirm("Remover esta CÉLULA inteira?")) { const p = appState.getProject(pid); p.cells = p.cells.filter(c => c.id !== cid); appState.saveProject(pid); ui.renderProject(pid); }
+            deleteCell(pid, cid, skipConfirm) {
+                if(skipConfirm || confirm("Remover esta CÉLULA inteira?")) { const p = appState.getProject(pid); p.cells = p.cells.filter(c => c.id !== cid); appState.saveProject(pid); ui.renderProject(pid); }
             },
-            deleteRobot(pid, cid, rid) {
-                if(confirm("Remover este ROBÔ e as tarefas dele?")) { const c = appState.getCell(pid, cid); c.robots = c.robots.filter(r => r.id !== rid); appState.saveProject(pid); ui.renderCell(pid, cid); }
+            deleteRobot(pid, cid, rid, skipConfirm) {
+                if(skipConfirm || confirm("Remover este ROBÔ e as tarefas dele?")) { const c = appState.getCell(pid, cid); c.robots = c.robots.filter(r => r.id !== rid); appState.saveProject(pid); ui.renderCell(pid, cid); }
             },
-            deleteTask(tid) {
-                if(confirm("Deletar esta tarefa do robô?")) { const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); r.tasks = r.tasks.filter(t => t.id !== tid); appState.saveProject(activeContext.projectId); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
+            deleteTask(tid, skipConfirm) {
+                if(skipConfirm || confirm("Deletar esta tarefa do robô?")) { const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); r.tasks = r.tasks.filter(t => t.id !== tid); appState.saveProject(activeContext.projectId); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
             },
 
             updateTask(tid, field, val) {
@@ -557,10 +559,14 @@
         // esquerda revela o botão vermelho "Excluir". Reaproveita uiActions.delete*.
         (function(){
             const OPEN = -92, THRESH = -46;
-            let target = null, startX = 0, startY = 0, axis = null, moved = false;
+            let target = null, reveal = null, startX = 0, startY = 0, axis = null, moved = false;
             function findTarget(t){
                 if (t.closest('select,input,button,a,.trail-cell,.action-btns')) return null;
                 return t.closest('.swipe-host > .card') || t.closest('#robot-tasks-table tbody tr:not(.cat-row)');
+            }
+            function revealEl(el){ // o vermelho que aparece ao arrastar este alvo
+                return el.classList.contains('card') ? el.parentElement.querySelector('.swipe-del')
+                                                     : el.querySelector('.swipe-del-cell');
             }
             function closeAll(except){
                 document.querySelectorAll('.swiped').forEach(el => { if (el !== except) el.classList.remove('swiped'); });
@@ -571,7 +577,7 @@
                 const el = findTarget(e.target);
                 if (!el || !el.classList.contains('swiped')) closeAll(el);
                 if (!el) { target = null; return; }
-                target = el; axis = null; moved = false;
+                target = el; reveal = revealEl(el); axis = null; moved = false;
                 startX = e.touches[0].clientX; startY = e.touches[0].clientY;
             }, { passive: true });
             document.addEventListener('touchmove', function(e){
@@ -582,6 +588,7 @@
                     axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
                     if (axis === 'y') { target = null; return; } // gesto vertical: deixa rolar
                     target.classList.add('dragging'); // segue o dedo sem transição
+                    if (reveal) reveal.style.transition = 'none';
                 }
                 e.preventDefault(); moved = true;
                 const base = target.classList.contains('swiped') ? OPEN : 0;
@@ -590,14 +597,17 @@
                 if (x < OPEN) x = OPEN + (x - OPEN) * 0.28;
                 else if (x > 0) x = x * 0.28;
                 target.style.transform = 'translateX(' + x + 'px)';
+                // vermelho surge proporcional ao quanto foi arrastado
+                if (reveal) reveal.style.opacity = Math.min(1, Math.abs(x) / Math.abs(OPEN));
             }, { passive: false });
             document.addEventListener('touchend', function(e){
                 if (!target || axis !== 'x') { if (target) target.classList.remove('dragging'); target = null; return; }
                 const dx = e.changedTouches[0].clientX - startX;
                 const base = target.classList.contains('swiped') ? OPEN : 0;
-                const t = target; target = null;
+                const t = target, rv = reveal; target = null; reveal = null;
                 t.classList.remove('dragging'); // reativa a transição p/ a soltura animar
                 t.style.transform = '';
+                if (rv) { rv.style.transition = ''; rv.style.opacity = ''; } // deixa o CSS (.swiped) assumir
                 if (base + dx <= THRESH) t.classList.add('swiped'); else t.classList.remove('swiped');
                 if (moved) { // impede que o arrasto vire clique de navegação
                     const stop = ev => { ev.stopPropagation(); ev.preventDefault(); };
