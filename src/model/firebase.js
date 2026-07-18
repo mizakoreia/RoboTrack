@@ -15,6 +15,15 @@ const firebaseConfig = {
     appId: "1:183892562388:web:c65ab780dd0704f42dc641"
 };
 firebase.initializeApp(firebaseConfig);
+// ===== APP CHECK (reCAPTCHA v3) =====
+// Protege o backend contra abuso de terceiros. Enquanto o enforcement estiver
+// "Unenforced" no console, os tokens só alimentam o monitor — não bloqueiam nada.
+try {
+    firebase.appCheck().activate('6LcvDlotAAAAAL9MCqfxs1WgpAVtJmQgzrKQBYoQ', true);
+    console.log('[RoboTrack] ✅ App Check ativado');
+} catch (e) {
+    console.warn('[RoboTrack] App Check não pôde ser ativado:', e);
+}
 const db = firebase.firestore();
 const auth = firebase.auth();
 // Enable offline persistence so writes resolve locally even with slow/blocked server
