@@ -530,21 +530,28 @@
 
 
         // "Manter conectado": LOCAL persiste entre sessões (padrão), SESSION expira ao
-        // fechar o navegador. Aplica antes de qualquer sign-in.
-        function _applyPersistence() {
+        // fechar o navegador. Define a persistência e SÓ ENTÃO faz o sign-in — mas nunca
+        // deixa o login travar: se setPersistence demorar/falhar (ex.: Brave bloqueando
+        // IndexedDB), segue mesmo assim após um curto timeout.
+        function _persistThen(fn) {
             const rem = document.getElementById('auth-remember');
             const mode = (!rem || rem.checked) ? 'LOCAL' : 'SESSION';
-            return auth.setPersistence(firebase.auth.Auth.Persistence[mode]).catch(()=>{});
+            let done = false;
+            const go = () => { if (done) return; done = true; fn().catch(err => _authErr(err.message)); };
+            try {
+                auth.setPersistence(firebase.auth.Auth.Persistence[mode]).then(go, go);
+                setTimeout(go, 1200); // rede de segurança: não bloqueia o login
+            } catch (e) { go(); }
         }
         function authLogin() {
             const e = document.getElementById('auth-email').value.trim();
             const p = document.getElementById('auth-pass').value;
             if (!e || !p) return _authErr('Preencha email e senha.');
-            _applyPersistence().then(() => auth.signInWithEmailAndPassword(e, p)).catch(err => _authErr(err.message));
+            _persistThen(() => auth.signInWithEmailAndPassword(e, p));
         }
         function authGoogle() {
             const provider = new firebase.auth.GoogleAuthProvider();
-            _applyPersistence().then(() => auth.signInWithPopup(provider)).catch(err => _authErr(err.message));
+            _persistThen(() => auth.signInWithPopup(provider));
         }
         let authMode = 'login'; // 'login' | 'register'
         function toggleAuthMode() {
@@ -563,10 +570,8 @@
             if (!n) return _authErr('Preencha seu nome.');
             if (!e || !p) return _authErr('Preencha email e senha.');
             if (p.length < 6) return _authErr('Senha mínimo 6 caracteres.');
-            _applyPersistence()
-                .then(() => auth.createUserWithEmailAndPassword(e, p))
-                .then(cred => cred.user.updateProfile({ displayName: n }))
-                .catch(err => _authErr(err.message));
+            _persistThen(() => auth.createUserWithEmailAndPassword(e, p)
+                .then(cred => cred.user.updateProfile({ displayName: n })));
         }
         function _authErr(msg) {
             const el = document.getElementById('auth-error');
