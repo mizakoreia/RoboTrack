@@ -59,22 +59,30 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   const cid = await p.evaluate(()=>state.projects[0].cells[0].id);
   await p.evaluate(a=>nav('cell', a.pid, a.cid), {pid,cid});
   await p.waitForTimeout(80);
+  // Fluxo 2 passos: define quantidade+aplicação, gera campos, nomeia, cadastra
   await p.evaluate(()=>{
-    document.getElementById('inp-robot-name').value='R01 KUKA';
+    uiActions.openModalAddRobot();
+    document.getElementById('inp-robot-qty').value='1';
     document.getElementById('sel-robot-app').value='Solda Ponto';
+    uiActions.robotStep2();
+    document.querySelectorAll('#robot-names .robot-name-inp')[0].value='R01 KUKA';
     uiActions.confirmAddRobot();
   });
   await p.waitForTimeout(150);
   ok('robô criado com tarefas do template', await p.evaluate(()=>{ const r=state.projects[0].cells[0].robots[0]; return r && r.name==='R01 KUKA' && r.tasks.length>0; }));
 
-  // 5b. Vários robôs de uma vez (textarea, um por linha; ignora vazias/duplicadas)
+  // 5b. Vários robôs de uma vez (qty gera N campos; ignora vazios/duplicados)
   await p.evaluate(()=>{
-    document.getElementById('inp-robot-name').value='R02 Handling\n\nR03 Sealing\nR03 Sealing';
+    uiActions.openModalAddRobot();
+    document.getElementById('inp-robot-qty').value='3';
     document.getElementById('sel-robot-app').value='Handling';
+    uiActions.robotStep2();
+    const ins=document.querySelectorAll('#robot-names .robot-name-inp');
+    ins[0].value='R02 Handling'; ins[1].value='R03 Sealing'; ins[2].value='R03 Sealing';
     uiActions.confirmAddRobot();
   });
   await p.waitForTimeout(150);
-  ok('múltiplos robôs criados de uma vez (sem duplicar)', await p.evaluate(()=>{ const rs=state.projects[0].cells[0].robots.map(r=>r.name); return rs.includes('R02 Handling') && rs.includes('R03 Sealing') && rs.filter(n=>n==='R03 Sealing').length===1 && rs.length===3; }));
+  ok('gera N campos e cria múltiplos robôs (sem duplicar)', await p.evaluate(()=>{ const rs=state.projects[0].cells[0].robots.map(r=>r.name); return rs.includes('R02 Handling') && rs.includes('R03 Sealing') && rs.filter(n=>n==='R03 Sealing').length===1 && rs.length===3; }));
 
   // 6. Entrar no robô, concluir 1ª tarefa -> progresso + log + save
   const rid = await p.evaluate(()=>state.projects[0].cells[0].robots[0].id);
