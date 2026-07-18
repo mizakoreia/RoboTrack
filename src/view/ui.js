@@ -272,7 +272,7 @@
                 const stampCls = pct === 100 ? 'ok' : (pct > 0 ? 'part' : 'pend');
                 const stampTxt = pct === 100 ? 'CONCLUÍDO' : (pct > 0 ? 'EM ANDAMENTO' : 'PENDENTE');
                 const fmtTs = ts => ts ? new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
-                const bar = (v, cls) => `<div class="rpt-bar"><div class="rpt-bar-fill ${cls||''}" style="width:${v}%"></div><span>${v}%</span></div>`;
+                const bar = (v) => `<div class="rpt-prog"><div class="rpt-bar"><div class="rpt-bar-fill" style="width:${v}%"></div></div><b>${v}%</b></div>`;
 
                 let html = `
                 <div class="rpt-doc">
