@@ -51,3 +51,4 @@ let state = {
     logs: []
 };
 let currentTaskFilter = 'T'; // T: Todos, P: Pendentes, C: Concluídos
+let dashSearch = ''; // filtro de busca da Visão Geral

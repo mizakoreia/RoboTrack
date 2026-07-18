@@ -465,6 +465,9 @@
                 } else if (view === 'report') {
                     const nr = document.getElementById('nav-report'); if (nr) nr.classList.add('active');
                     ui.renderReport();
+                } else if (view === 'mytasks') {
+                    const nm = document.getElementById('nav-mytasks'); if (nm) nm.classList.add('active');
+                    ui.renderMyTasks();
                 }
             }, 10);
         }
@@ -518,6 +521,7 @@
             else if (id === 'robot' && activeContext.robotId) ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
             else if (id === 'settings') ui.renderSettings();
             else if (id === 'report') ui.renderReport();
+            else if (id === 'mytasks') ui.renderMyTasks();
         }
 
         auth.onAuthStateChanged(async function(user) {

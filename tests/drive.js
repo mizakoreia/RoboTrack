@@ -158,6 +158,19 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   ok('VIEW consegue ver histórico', await p.evaluate(()=>document.getElementById('modal-task-history').classList.contains('active')));
   await p.evaluate(()=>document.getElementById('modal-task-history').classList.remove('active'));
 
+  // 9a2. BUSCA + MINHAS TAREFAS
+  await p.evaluate(()=>{ window.currentRole='owner'; document.body.dataset.role='owner'; nav('dashboard'); });
+  await p.waitForTimeout(120);
+  await p.evaluate(()=>{ dashSearch='inexistente-xyz'; ui.renderDashboard(); });
+  ok('busca sem match mostra vazio', await p.evaluate(()=>document.getElementById('dashboard-cards').innerHTML.includes('Nada encontrado')));
+  await p.evaluate(()=>{ dashSearch='KUKA'; ui.renderDashboard(); });
+  ok('busca por robô acha o projeto', await p.evaluate(()=>document.getElementById('dashboard-cards').innerHTML.includes('Projeto VW')));
+  await p.evaluate(()=>{ dashSearch=''; ui.renderDashboard(); });
+  await p.evaluate(()=>{ const t=state.projects[0].cells[0].robots[0].tasks[2]; t.resp='Rafael'; t.status='Em Andamento'; t.progress=30; nav('mytasks'); });
+  await p.waitForTimeout(120);
+  ok('minhas tarefas lista atribuída a mim', await p.evaluate(()=>document.getElementById('mytasks-list').innerHTML.includes('R01 KUKA')));
+  ok('minhas tarefas exclui concluídas', await p.evaluate(()=>{ const html=document.getElementById('mytasks-list').innerHTML; const done=state.projects[0].cells[0].robots[0].tasks[1].desc; return !html.includes(done); }));
+
   // 9b. RELATÓRIO (protocolo)
   await p.evaluate(()=>{ window.currentRole='owner'; document.body.dataset.role='owner'; nav('report'); });
   await p.waitForTimeout(120);
