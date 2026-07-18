@@ -90,9 +90,19 @@
 
         /* Swipe-para-excluir: card desliza pra esquerda e revela o botão vermelho atrás */
         .swipe-host { position: relative; overflow: hidden; border-radius: 16px; }
-        .swipe-host > .card { will-change: transform; transition: transform .2s; position: relative; z-index: 1; }
-        .swipe-host > .card.swiped { transform: translateX(-88px); }
-        .swipe-del { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; border: none; background: var(--danger); color: #fff; font-weight: 700; font-size: .8rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; z-index: 0; }
+        .swipe-host > .card { will-change: transform; transition: transform .38s cubic-bezier(.22,1,.36,1); position: relative; z-index: 1; }
+        .swipe-host > .card.swiped { transform: translateX(-92px); }
+        /* Durante o arraste, sem transição: o card segue o dedo em tempo real */
+        .swipe-host > .card.dragging, #robot-tasks-table tr.dragging { transition: none !important; }
+        .swipe-del {
+            position: absolute; top: 0; right: 0; bottom: 0; width: 92px;
+            border: none; border-radius: 0 16px 16px 0; cursor: pointer; z-index: 0;
+            background: linear-gradient(90deg, #b91c1c 0%, var(--danger) 55%);
+            color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: .02em;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+        }
+        .swipe-del .ico { font-size: 1.35rem; line-height: 1; }
+        .swipe-del:active { filter: brightness(1.12); }
         /* No desktop a linha de tarefa usa a lixeira da última coluna; a célula de swipe some */
         .swipe-del-cell { display: none; }
         .edit-btn { background: rgba(255, 255, 255, 0.1); color: #fff; }
