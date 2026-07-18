@@ -72,7 +72,17 @@ function subscribeWorkspace(wsId, role) {
             }
         }
         _reRender();
-    }, err => console.error('[RoboTrack] listener workspace:', err));
+    }, err => {
+        console.error('[RoboTrack] listener workspace:', err);
+        // Acesso revogado (dono removeu este membro): sai do workspace e volta pro próprio.
+        if (err && err.code === 'permission-denied' && wsId !== window.currentUserId) {
+            window.myWorkspaces = (window.myWorkspaces || []).filter(w => w.id !== wsId);
+            try { window._fbDB.collection('users').doc(window.currentUserId).set({ workspaces: window.myWorkspaces }, { merge: true }); } catch(e){}
+            alert('Seu acesso a este workspace foi removido.');
+            const own = (window.myWorkspaces || []).find(w => w.id === window.currentUserId);
+            if (own) { subscribeWorkspace(own.id, own.role); renderWorkspaceSelector(); }
+        }
+    });
     // Listener 2: projetos, cada um em seu documento (concorrência isolada).
     _fsUnsub2 = wref.collection('projects').orderBy('_ord').onSnapshot(function(snap) {
         state.projects = snap.docs.map(doc => Object.assign({ id: doc.id }, doc.data()));

@@ -284,7 +284,7 @@
 
     <!-- MODAL ADICIONAR USUÁRIO / CONVITE -->
     <div class="modal-overlay" id="modal-invite">
-        <div class="modal-content" style="width:460px;">
+        <div class="modal-content" style="width:460px; max-height:85vh; overflow-y:auto;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <h2 class="modal-title" style="margin:0;">Adicionar usuário</h2>
                 <button onclick="uiActions.closeInviteModal()" style="color:var(--text-muted); font-size:1.5rem;">&times;</button>
@@ -315,6 +315,13 @@
                     <button class="btn" onclick="uiActions.closeInviteModal()">Fechar</button>
                     <button class="btn btn-primary" onclick="uiActions.openInviteModal()">Novo convite</button>
                 </div>
+            </div>
+
+            <div id="ws-team-wrap" style="margin-top:22px; border-top:1px solid var(--border); padding-top:16px;">
+                <div class="form-label" style="margin-bottom:8px;">Membros do seu workspace</div>
+                <div id="ws-members-list" style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;"><i style="color:var(--text-muted); font-size:0.8rem;">Carregando...</i></div>
+                <div class="form-label" style="margin-bottom:8px;">Convites pendentes</div>
+                <div id="ws-invites-list" style="display:flex; flex-direction:column; gap:6px;"><i style="color:var(--text-muted); font-size:0.8rem;">Carregando...</i></div>
             </div>
         </div>
     </div>

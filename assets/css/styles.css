@@ -270,3 +270,7 @@
   .rpt-sign { gap:16px; }
   .rpt-sec, .rpt-cell-h, .rpt-robot-h { flex-wrap:wrap; gap:8px; }
 }
+
+/* --- Gestão de equipe (modal Adicionar usuário) --- */
+.team-row { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:8px; padding:6px 10px; }
+.team-mail { flex:1; font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
