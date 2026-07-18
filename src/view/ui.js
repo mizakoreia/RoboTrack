@@ -208,8 +208,6 @@
                     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted)">Nenhuma tarefa.</td></tr>`; return;
                 }
                 
-                const respOptionsHTML = (state.responsibles || ["Não Atribuído"]).map(res => `<option value="${sanitize(res)}">${sanitize(res)}</option>`).join('');
-                
                 let html = '', curCat = '';
                 r.tasks.forEach(t => {
                     if (currentTaskFilter === 'P' && t.status === 'Concluído') return;
@@ -226,9 +224,8 @@
                     const contribs = [...new Set(hist.map(h => h.byName).filter(Boolean).filter(n => n !== '(nota anterior)'))];
                     const contribChips = contribs.map(n => `<span class="contrib-chip">${sanitize(n)}</span>`).join('');
 
-                    let respWarning = (t.progress > 0 && (!t.resp || t.resp === 'Não Atribuído'))
-                        ? `border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.1); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);` 
-                        : ``;
+                    const people = taskPeople(t);
+                    const needsResp = (t.progress > 0 && people.length === 0);
 
                     html += `<tr id="tr_${t.id}">
                         <td style="width: 25%">${sanitize(t.desc)}</td>
@@ -249,10 +246,11 @@
                             </div>
                         </div></td>
                         <td style="width: 20%">
-                            <select style="${respWarning}" onchange="uiActions.updateTask('${t.id}', 'resp', this.value)">
-                                <option value="Não Atribuído" disabled hidden>${t.progress > 0 && (!t.resp || t.resp === 'Não Atribuído') ? '⚠️ Escolha...' : 'Selecione'}</option>
-                                ${respOptionsHTML.replace(`value="${t.resp}"`, `value="${t.resp}" selected`)}
-                            </select>
+                            <div class="assignee-cell${needsResp ? ' assignee-missing' : ''}" onclick="uiActions.openAssignModal('${t.id}')" title="Atribuir responsáveis">
+                                ${people.length
+                                    ? people.map(n => `<span class="assignee-chip">${sanitize(n)}</span>`).join('')
+                                    : `<span class="assignee-empty">${needsResp ? '⚠️ Atribuir…' : '+ Atribuir'}</span>`}
+                            </div>
                             ${contribChips ? `<div class="contrib-row">${contribChips}</div>` : ''}
                         </td>
                         <td style="width: 20%">
@@ -273,7 +271,7 @@
                 if (!me) { el.innerHTML = '<div class="empty-state">Faça login.</div>'; return; }
                 const rows = [];
                 (state.projects||[]).forEach(p => (p.cells||[]).forEach(c => (c.robots||[]).forEach(r => (r.tasks||[]).forEach(t => {
-                    if (t.resp === me && t.status !== 'Concluído' && t.status !== 'N/A')
+                    if (taskPeople(t).includes(me) && t.status !== 'Concluído' && t.status !== 'N/A')
                         rows.push({ p, c, r, t });
                 }))));
                 if (!rows.length) { el.innerHTML = '<div class="empty-state">🎉 Nenhuma tarefa pendente atribuída a você.</div>'; return; }
@@ -309,7 +307,7 @@
                     nTasks++; dist[t.status] = (dist[t.status]||0)+1;
                     if (t.status === 'Concluído') {
                         const done = (t.history||[]).filter(h => h.to === 100).pop();
-                        conclusions.push({ desc:t.desc, robot:r.name, cell:c.name, by:(done&&done.byName)||t.resp||'—', ts:(done&&done.ts)||null });
+                        conclusions.push({ desc:t.desc, robot:r.name, cell:c.name, by:(done&&done.byName)||taskPeople(t).join(', ')||'—', ts:(done&&done.ts)||null });
                     }
                 }); }); }));
                 const pct = projects.length ? Math.round(projects.reduce((s,p)=>s+appState.calcProjectProgress(p),0)/projects.length) : 0;
@@ -350,7 +348,7 @@
                             <table class="rpt-tasks"><thead><tr><th></th><th>Tarefa</th><th>Status</th><th class="rpt-r">%</th><th>Responsável</th></tr></thead><tbody>`;
                             (r.tasks||[]).forEach(t => {
                                 const cls = CLS[t.status]||'pend';
-                                html += `<tr class="rpt-t-${cls}"><td class="rpt-sym ${cls}">${SYM[t.status]||'○'}</td><td>${sanitize(t.desc)}</td><td class="rpt-st ${cls}">${sanitize(t.status)}</td><td class="rpt-r rpt-mono">${t.progress||0}</td><td>${sanitize(t.resp||'—')}</td></tr>`;
+                                html += `<tr class="rpt-t-${cls}"><td class="rpt-sym ${cls}">${SYM[t.status]||'○'}</td><td>${sanitize(t.desc)}</td><td class="rpt-st ${cls}">${sanitize(t.status)}</td><td class="rpt-r rpt-mono">${t.progress||0}</td><td>${sanitize(taskPeople(t).join(', ')||'—')}</td></tr>`;
                                 (t.history||[]).forEach(h => {
                                     if (h.legacy && !h.comment) return;
                                     const delta = (h.from!=null&&h.to!=null) ? `${h.from}→${h.to}%` : '';

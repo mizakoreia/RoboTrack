@@ -311,6 +311,23 @@
         </div>
     </div>
 
+    <!-- MODAL ATRIBUIR (múltiplos responsáveis por tarefa) -->
+    <div class="modal-overlay" id="modal-assign">
+        <div class="modal-content" style="width:420px; max-height:82vh; overflow-y:auto;">
+            <h2 class="modal-title">Atribuir responsáveis</h2>
+            <p class="modal-desc" id="assign-task-name" style="margin-bottom:14px;"></p>
+            <div id="assign-list" style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;"></div>
+            <div style="display:flex; gap:8px; margin-bottom:20px;">
+                <input type="text" id="assign-new" placeholder="Adicionar pessoa e marcar" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();uiActions.assignAddPerson();}">
+                <button class="btn" onclick="uiActions.assignAddPerson()">+ Add</button>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:12px">
+                <button class="btn" onclick="document.getElementById('modal-assign').classList.remove('active')">Cancelar</button>
+                <button class="btn btn-primary" onclick="uiActions.confirmAssign()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL LOGS -->
     <div class="modal-overlay" id="modal-logs">
         <div class="modal-content" style="width:600px; max-height:80vh; overflow-y:auto;">

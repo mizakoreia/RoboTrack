@@ -66,6 +66,13 @@ function subscribeWorkspace(wsId, role) {
             if (Array.isArray(d.defaultTasks) && d.defaultTasks.length > 0) state.defaultTasks = d.defaultTasks;
             if (Array.isArray(d.responsibles) && d.responsibles.length > 0) state.responsibles = d.responsibles;
             if (d.name) state.wsName = d.name;
+            // Auto-inscreve o próprio nome na lista COMPARTILHADA de responsáveis, para
+            // que quem convida (e a equipe) possa atribuir tarefas a essa pessoa. Só
+            // editores/dono conseguem gravar; a snapshot seguinte já traz o nome, sem loop.
+            if (window.currentUserName && canEdit() && !(state.responsibles || []).includes(window.currentUserName)) {
+                state.responsibles = [...(state.responsibles || ['Não Atribuído']), window.currentUserName];
+                try { appState.saveSettings(); } catch (e) {}
+            }
             // Migração única: projetos (S-05) e logs (S-09) legados inline -> subcoleções. Só o dono grava.
             const _hasLegacy = (Array.isArray(d.projects) && d.projects.length) || (Array.isArray(d.logs) && d.logs.length);
             if (_hasLegacy && !_migrating && window.currentRole === 'owner') {
@@ -135,7 +142,7 @@ async function _consumePendingInvite(user) {
         // Cria a associação e marca o convite como usado (batch = atômico).
         const batch = window._fbDB.batch();
         const mref = window._fbDB.collection('workspaces').doc(inv.wsId).collection('members').doc(user.uid);
-        batch.set(mref, { role: inv.role, email: myEmail, inviteToken: token });
+        batch.set(mref, { role: inv.role, email: myEmail, name: user.displayName || myEmail, inviteToken: token });
         batch.update(iref, { used: true, usedAt: new Date().toISOString(), usedBy: user.uid });
         await batch.commit();
         const entry = { id: inv.wsId, name: inv.wsName || 'Workspace convidado', role: inv.role };

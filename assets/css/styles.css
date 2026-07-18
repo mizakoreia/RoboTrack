@@ -242,6 +242,17 @@
 .trail-btn { white-space:nowrap; font-size:0.75rem; color:var(--text-muted); }
 .contrib-row { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
 .contrib-chip { font-size:0.65rem; padding:2px 8px; border-radius:10px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); color:var(--accent); white-space:nowrap; }
+
+/* Célula de atribuição (múltiplos responsáveis) — abre o modal ao clicar */
+.assignee-cell { display:flex; flex-wrap:wrap; gap:4px; align-items:center; min-height:32px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; cursor:pointer; transition:border-color .2s, background .2s; }
+.assignee-cell:hover { border-color:var(--accent); background:rgba(59,130,246,0.06); }
+.assignee-cell.assignee-missing { border-color:var(--danger); background:rgba(239,68,68,0.1); box-shadow:0 0 10px rgba(239,68,68,0.35); }
+.assignee-chip { font-size:0.72rem; font-weight:600; padding:3px 9px; border-radius:12px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.35); color:var(--success); white-space:nowrap; }
+.assignee-empty { font-size:0.78rem; color:var(--text-muted); }
+.assignee-cell.assignee-missing .assignee-empty { color:var(--danger); font-weight:600; }
+.assign-row { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; cursor:pointer; font-size:0.9rem; }
+.assign-row:hover { background:rgba(255,255,255,0.04); }
+.assign-row input[type="checkbox"] { width:17px; height:17px; accent-color:var(--accent); cursor:pointer; margin:0; }
 .tl-entry { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
 .tl-legacy { opacity:0.7; }
 .tl-head { display:flex; align-items:center; gap:10px; font-size:0.85rem; flex-wrap:wrap; }

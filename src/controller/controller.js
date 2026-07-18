@@ -298,6 +298,49 @@
                 if (n && n !== t.desc) { t.desc = n; appState.saveProject(activeContext.projectId); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
             },
 
+            // ===== ATRIBUIÇÃO (múltiplos responsáveis) =====
+            openAssignModal(tid) {
+                if (!requireEdit()) return;
+                const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+                const t = r && r.tasks.find(x => x.id === tid);
+                if (!t) return;
+                this._assignTid = tid;
+                document.getElementById('assign-task-name').textContent = t.desc;
+                document.getElementById('assign-new').value = '';
+                this._renderAssignList(taskPeople(t));
+                document.getElementById('modal-assign').classList.add('active');
+            },
+            _renderAssignList(checked) {
+                const people = (state.responsibles || []).filter(n => n && n !== 'Não Atribuído');
+                const el = document.getElementById('assign-list');
+                el.innerHTML = people.length
+                    ? people.map(n => `<label class="assign-row"><input type="checkbox" class="assign-cb" value="${sanitize(n)}" ${checked.includes(n) ? 'checked' : ''}> ${sanitize(n)}</label>`).join('')
+                    : '<i style="color:var(--text-muted); font-size:0.85rem;">Ninguém cadastrado ainda. Adicione abaixo ou convide alguém em "Adicionar usuário".</i>';
+            },
+            assignAddPerson() {
+                const inp = document.getElementById('assign-new');
+                const n = (inp.value || '').trim();
+                if (!n) return;
+                if (!state.responsibles) state.responsibles = ['Não Atribuído'];
+                if (!state.responsibles.includes(n)) { state.responsibles.push(n); appState.saveSettings(); }
+                const cur = [...document.querySelectorAll('#assign-list .assign-cb:checked')].map(c => c.value);
+                if (!cur.includes(n)) cur.push(n);
+                inp.value = '';
+                this._renderAssignList(cur);
+            },
+            confirmAssign() {
+                if (!requireEdit()) return;
+                const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+                const t = r && r.tasks.find(x => x.id === this._assignTid);
+                if (!t) return;
+                const sel = [...document.querySelectorAll('#assign-list .assign-cb:checked')].map(c => c.value);
+                t.assignees = sel;
+                t.resp = sel[0] || 'Não Atribuído'; // mantém compat com leituras legadas
+                appState.saveProject(activeContext.projectId);
+                document.getElementById('modal-assign').classList.remove('active');
+                ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+            },
+
             updateTask(tid, field, val) {
                 if (!canEdit()) { ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); return; }
                 const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
@@ -309,9 +352,9 @@
                     const _liveUser = auth.currentUser;
                     const _liveName = (_liveUser ? (_liveUser.displayName || _liveUser.email) : null) || window.currentUserName || null;
                     if ((field === 'progress' || field === 'status') && _liveName) {
-                        if (!t.resp || t.resp === 'Não Atribuído') {
-                            t.resp = _liveName;
-                            // Garante que o nome aparece no dropdown de responsáveis
+                        if (taskPeople(t).length === 0) {
+                            t.assignees = [_liveName]; t.resp = _liveName;
+                            // Garante que o nome aparece na lista de responsáveis
                             if (!state.responsibles) state.responsibles = ['Não Atribuído'];
                             if (!state.responsibles.includes(_liveName)) { state.responsibles.push(_liveName); _settingsTouched = true; }
                         }
@@ -328,7 +371,7 @@
 
                         if (t.progress === 100) {
                             t.status = "Concluído";
-                            appState.addLog(`Em [${r.name}], ${t.resp} concluiu a tarefa "${t.desc}" com 100%.`);
+                            appState.addLog(`Em [${r.name}], ${taskPeople(t).join(', ') || _liveName || '—'} concluiu a tarefa "${t.desc}" com 100%.`);
                         }
                         else if (t.progress > 0) t.status = "Em Andamento";
                         else if (!t.status.includes("N/A")) t.status = "Pendente"; 
