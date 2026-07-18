@@ -289,6 +289,14 @@
             deleteTask(tid, skipConfirm) {
                 if(skipConfirm || confirm("Deletar esta tarefa do robô?")) { const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); r.tasks = r.tasks.filter(t => t.id !== tid); appState.saveProject(activeContext.projectId); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
             },
+            async renameTask(tid) {
+                if (!requireEdit()) return;
+                const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+                const t = r && r.tasks.find(x => x.id === tid);
+                if (!t) return;
+                const n = await uiPrompt("Editar tarefa", "Descrição da tarefa:", t.desc);
+                if (n && n !== t.desc) { t.desc = n; appState.saveProject(activeContext.projectId); ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); }
+            },
 
             updateTask(tid, field, val) {
                 if (!canEdit()) { ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); return; }
