@@ -4,7 +4,7 @@
 //  - Requisições cross-origin (Firebase / Firestore / gstatic): NÃO são interceptadas,
 //    vão sempre à rede ao vivo. Isso é essencial para os saves na nuvem funcionarem.
 //  - Todo same-origin (HTML, JS, CSS): NETWORK-FIRST -> nunca serve JS/CSS velho; cache é fallback offline.
-const CACHE_NAME = 'robotrack-v9-cache-v17';
+const CACHE_NAME = 'robotrack-v9-cache-v18';
 const urlsToCache = [
   './',
   './index.html',

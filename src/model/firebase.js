@@ -26,6 +26,17 @@ try {
 }
 const db = firebase.firestore();
 const auth = firebase.auth();
+// Persistência LOCAL no boot: mantém a sessão entre recarregamentos. Se o navegador
+// bloquear o armazenamento (Brave com shields, modo privado, "limpar ao sair"), o
+// Firebase cai em memória e o usuário volta pro login ao atualizar — avisamos no console.
+try {
+    var _P = firebase.auth.Auth && firebase.auth.Auth.Persistence;
+    if (_P && typeof auth.setPersistence === 'function') {
+        auth.setPersistence(_P.LOCAL).catch(function(e){
+            console.warn('[RoboTrack] ⚠️ Persistência de login indisponível — o navegador está bloqueando o armazenamento do site. Você será deslogado ao atualizar. Verifique cookies/armazenamento (ex.: Brave Shields / limpar ao sair).', e && e.code);
+        });
+    }
+} catch (e) { console.warn('[RoboTrack] setPersistence não disponível:', e && e.message); }
 // Enable offline persistence so writes resolve locally even with slow/blocked server
 db.enablePersistence({ synchronizeTabs: true })
   .then(() => console.log('[RoboTrack] ✅ Persistência offline ativada'))
