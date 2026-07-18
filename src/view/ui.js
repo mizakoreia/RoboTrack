@@ -242,6 +242,100 @@
                 });
                 tbody.innerHTML = html;
             },
+            // ===== RELATÓRIO: protocolo industrial de aceite =====
+            renderReport() {
+                // Seletor de escopo (preserva seleção entre re-renders)
+                const sel = document.getElementById('report-scope');
+                const prev = sel.value || 'all';
+                sel.innerHTML = `<option value="all">Todos os projetos</option>` +
+                    (state.projects || []).map(p => `<option value="${p.id}">${sanitize(p.name)}</option>`).join('');
+                sel.value = [...sel.options].some(o => o.value === prev) ? prev : 'all';
+                const scope = sel.value;
+                const projects = scope === 'all' ? (state.projects || []) : (state.projects || []).filter(p => p.id === scope);
+
+                const SYM = { 'Concluído':'✓', 'Em Andamento':'◐', 'N/A':'—', 'Pendente':'○' };
+                const CLS = { 'Concluído':'ok', 'Em Andamento':'part', 'N/A':'na', 'Pendente':'pend' };
+                const now = new Date();
+                const docId = 'RT-' + now.toISOString().slice(0,10).replace(/-/g,'') + '-' + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0');
+
+                // Métricas globais do escopo
+                let nCells=0, nRobots=0, nTasks=0, dist={ 'Concluído':0,'Em Andamento':0,'Pendente':0,'N/A':0 };
+                const conclusions = [];
+                projects.forEach(p => (p.cells||[]).forEach(c => { nCells++; (c.robots||[]).forEach(r => { nRobots++; (r.tasks||[]).forEach(t => {
+                    nTasks++; dist[t.status] = (dist[t.status]||0)+1;
+                    if (t.status === 'Concluído') {
+                        const done = (t.history||[]).filter(h => h.to === 100).pop();
+                        conclusions.push({ desc:t.desc, robot:r.name, cell:c.name, by:(done&&done.byName)||t.resp||'—', ts:(done&&done.ts)||null });
+                    }
+                }); }); }));
+                const pct = projects.length ? Math.round(projects.reduce((s,p)=>s+appState.calcProjectProgress(p),0)/projects.length) : 0;
+                const stampCls = pct === 100 ? 'ok' : (pct > 0 ? 'part' : 'pend');
+                const stampTxt = pct === 100 ? 'CONCLUÍDO' : (pct > 0 ? 'EM ANDAMENTO' : 'PENDENTE');
+                const fmtTs = ts => ts ? new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+                const bar = (v, cls) => `<div class="rpt-bar"><div class="rpt-bar-fill ${cls||''}" style="width:${v}%"></div><span>${v}%</span></div>`;
+
+                let html = `
+                <div class="rpt-doc">
+                    <table class="rpt-head"><tr>
+                        <td class="rpt-head-title">
+                            <div class="rpt-doc-type">PROTOCOLO DE COMISSIONAMENTO</div>
+                            <div class="rpt-doc-name">${sanitize(state.wsName || 'RoboTrack')}</div>
+                        </td>
+                        <td class="rpt-stamp-cell"><div class="rpt-stamp ${stampCls}"><span class="rpt-stamp-pct">${pct}%</span><span class="rpt-stamp-lbl">${stampTxt}</span></div></td>
+                    </tr></table>
+                    <table class="rpt-meta">
+                        <tr><td>Escopo</td><td>${scope==='all' ? 'Todos os projetos ('+projects.length+')' : sanitize(projects[0] ? projects[0].name : '—')}</td><td>Documento</td><td class="rpt-mono">${docId}</td></tr>
+                        <tr><td>Emitido em</td><td>${now.toLocaleString('pt-BR')}</td><td>Gerado por</td><td>${sanitize(window.currentUserName || '—')}</td></tr>
+                        <tr><td>Estrutura</td><td colspan="3">${projects.length} projeto(s) · ${nCells} célula(s) · ${nRobots} robô(s) · ${nTasks} tarefa(s)</td></tr>
+                    </table>
+                    <table class="rpt-dist"><tr>
+                        <td class="ok">✓ Concluído <b>${dist['Concluído']}</b></td>
+                        <td class="part">◐ Em andamento <b>${dist['Em Andamento']}</b></td>
+                        <td class="pend">○ Pendente <b>${dist['Pendente']}</b></td>
+                        <td class="na">— N/A <b>${dist['N/A']}</b></td>
+                    </tr></table>`;
+
+                if (!projects.length) html += `<div class="rpt-empty">Nenhum projeto no escopo selecionado.</div>`;
+
+                projects.forEach(p => {
+                    html += `<section class="rpt-project"><div class="rpt-sec"><h2>${sanitize(p.name)}</h2>${bar(appState.calcProjectProgress(p))}</div>`;
+                    (p.cells||[]).forEach(c => {
+                        html += `<div class="rpt-cell-h"><h3>Célula · ${sanitize(c.name)}</h3>${bar(appState.calcCellProgress(c))}</div>`;
+                        (c.robots||[]).forEach(r => {
+                            html += `<div class="rpt-robot"><div class="rpt-robot-h"><h4>⚙ ${sanitize(r.name)} <span class="rpt-app">${sanitize(r.application||'Misto / Geral')}</span></h4>${bar(appState.calcRobotProgress(r))}</div>
+                            <table class="rpt-tasks"><thead><tr><th></th><th>Tarefa</th><th>Status</th><th class="rpt-r">%</th><th>Responsável</th></tr></thead><tbody>`;
+                            (r.tasks||[]).forEach(t => {
+                                const cls = CLS[t.status]||'pend';
+                                html += `<tr class="rpt-t-${cls}"><td class="rpt-sym ${cls}">${SYM[t.status]||'○'}</td><td>${sanitize(t.desc)}</td><td class="rpt-st ${cls}">${sanitize(t.status)}</td><td class="rpt-r rpt-mono">${t.progress||0}</td><td>${sanitize(t.resp||'—')}</td></tr>`;
+                                (t.history||[]).forEach(h => {
+                                    if (h.legacy && !h.comment) return;
+                                    const delta = (h.from!=null&&h.to!=null) ? `${h.from}→${h.to}%` : '';
+                                    html += `<tr class="rpt-ms"><td></td><td colspan="4"><span class="rpt-mono">${fmtTs(h.ts)}</span> · <b>${sanitize(h.byName||'—')}</b>${delta?` · <span class="rpt-mono">${delta}</span>`:''}${h.comment?` · ${sanitize(h.comment)}`:''}</td></tr>`;
+                                });
+                            });
+                            html += `</tbody></table></div>`;
+                        });
+                    });
+                    html += `</section>`;
+                });
+
+                if (conclusions.length) {
+                    html += `<section class="rpt-project"><div class="rpt-sec"><h2>Conclusões</h2><span class="rpt-mono">${conclusions.length} tarefa(s) a 100%</span></div>
+                    <table class="rpt-tasks"><thead><tr><th></th><th>Tarefa</th><th>Robô / Célula</th><th>Concluído por</th><th>Quando</th></tr></thead><tbody>` +
+                    conclusions.map(cc => `<tr><td class="rpt-sym ok">✓</td><td>${sanitize(cc.desc)}</td><td>${sanitize(cc.robot)} · ${sanitize(cc.cell)}</td><td>${sanitize(cc.by)}</td><td class="rpt-mono">${fmtTs(cc.ts)}</td></tr>`).join('') +
+                    `</tbody></table></section>`;
+                }
+
+                html += `
+                    <section class="rpt-sign">
+                        <div class="rpt-sign-box"><div class="rpt-sign-line"></div><div>Comissionador</div><div class="rpt-mono">Nome / Data</div></div>
+                        <div class="rpt-sign-box"><div class="rpt-sign-line"></div><div>Cliente / Aceite</div><div class="rpt-mono">Nome / Data</div></div>
+                    </section>
+                    <div class="rpt-foot">${docId} · Gerado pelo RoboTrack em ${now.toLocaleString('pt-BR')} · Trilha de avanços registrada por usuário autenticado</div>
+                </div>`;
+
+                document.getElementById('report-sheet').innerHTML = html;
+            },
             renderSettings() {
                 const tt = document.getElementById('tbl-manage-tasks').querySelector('tbody');
                 const rl = document.getElementById('responsibles-list');
