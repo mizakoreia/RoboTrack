@@ -52,3 +52,11 @@ let state = {
 };
 let currentTaskFilter = 'T'; // T: Todos, P: Pendentes, C: Concluídos
 let dashSearch = ''; // filtro de busca da Visão Geral
+
+// Responsáveis de uma tarefa (múltiplos). Aceita o formato novo (assignees[])
+// e migra o legado (resp: string única) na leitura, sem precisar persistir.
+function taskPeople(t) {
+    if (t && Array.isArray(t.assignees)) return t.assignees.filter(Boolean);
+    if (t && t.resp && t.resp !== 'Não Atribuído') return [t.resp];
+    return [];
+}

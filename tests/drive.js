@@ -196,6 +196,22 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   ok('minhas tarefas lista atribuída a mim', await p.evaluate(()=>document.getElementById('mytasks-list').innerHTML.includes('R01 KUKA')));
   ok('minhas tarefas exclui concluídas', await p.evaluate(()=>{ const html=document.getElementById('mytasks-list').innerHTML; const done=state.projects[0].cells[0].robots[0].tasks[1].desc; return !html.includes(done); }));
 
+  // 9a2b. ATRIBUIÇÃO MÚLTIPLA (várias pessoas na mesma tarefa)
+  await p.evaluate(()=>{ window.currentRole='owner'; state.responsibles=['Não Atribuído','Rafael','Bruna','Carlos']; const pj=state.projects[0]; nav('robot',pj.id,pj.cells[0].id,pj.cells[0].robots[0].id); });
+  await p.waitForTimeout(120);
+  const t0 = await p.evaluate(()=>state.projects[0].cells[0].robots[0].tasks[2].id);
+  await p.evaluate(id=>uiActions.openAssignModal(id), t0);
+  await p.waitForTimeout(40);
+  ok('modal de atribuição lista as pessoas', await p.evaluate(()=>document.querySelectorAll('#assign-list .assign-cb').length===3));
+  await p.evaluate(()=>{ document.querySelectorAll('#assign-list .assign-cb').forEach(cb=>{ cb.checked = (cb.value==='Bruna'||cb.value==='Carlos'); }); uiActions.confirmAssign(); });
+  await p.waitForTimeout(120);
+  ok('atribui múltiplos responsáveis à tarefa', await p.evaluate(()=>{ const a=state.projects[0].cells[0].robots[0].tasks[2].assignees||[]; return a.includes('Bruna')&&a.includes('Carlos')&&a.length===2; }));
+  ok('linha mostra chips dos responsáveis', await p.evaluate(()=>{ const h=document.getElementById('robot-tasks-table').innerHTML; return h.includes('assignee-chip')&&h.includes('Bruna')&&h.includes('Carlos'); }));
+  ok('minhas tarefas vê a pessoa entre vários', await p.evaluate(()=>{ window.currentUserName='Carlos'; nav('mytasks'); return true; }));
+  await p.waitForTimeout(120);
+  ok('atribuído entre vários aparece em Minhas Tarefas', await p.evaluate(()=>document.getElementById('mytasks-list').innerHTML.includes('R01 KUKA')));
+  await p.evaluate(()=>{ window.currentUserName='Rafael'; });
+
   // 9a3. SWIPE-PARA-EXCLUIR (fiação; a física de toque é validada manualmente)
   await p.evaluate(()=>{ const p=state.projects[0],c=p.cells[0],r=c.robots[0]; nav('robot',p.id,c.id,r.id); });
   await p.waitForTimeout(120);
