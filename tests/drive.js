@@ -190,7 +190,15 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   ok('busca sem match mostra vazio', await p.evaluate(()=>document.getElementById('dashboard-cards').innerHTML.includes('Nada encontrado')));
   await p.evaluate(()=>{ dashSearch='KUKA'; ui.renderDashboard(); });
   ok('busca por robô acha o projeto', await p.evaluate(()=>document.getElementById('dashboard-cards').innerHTML.includes('Projeto VW')));
-  await p.evaluate(()=>{ dashSearch=''; ui.renderDashboard(); });
+  // Digitação REAL no campo (bind via addEventListener) + doc de projeto incompleto
+  // (sem 'cells', como um criado manualmente no console) não pode quebrar o render.
+  await p.evaluate(()=>{ state.projects.push({ id:'incompleto', name:'Doc Incompleto' }); dashSearch=''; });
+  await p.fill('#dash-search', '');
+  await p.type('#dash-search', 'KUKA');
+  await p.waitForTimeout(150);
+  ok('digitar no campo filtra mesmo com doc incompleto no state', await p.evaluate(()=>{ const h=document.getElementById('dashboard-cards').innerHTML; return dashSearch==='KUKA' && h.includes('Projeto VW') && !h.includes('Doc Incompleto'); }));
+  await p.fill('#dash-search', '');
+  await p.evaluate(()=>{ state.projects = state.projects.filter(x=>x.id!=='incompleto'); dashSearch=''; ui.renderDashboard(); });
   await p.evaluate(()=>{ const t=state.projects[0].cells[0].robots[0].tasks[2]; t.resp='Rafael'; t.status='Em Andamento'; t.progress=30; nav('mytasks'); });
   await p.waitForTimeout(120);
   ok('minhas tarefas lista atribuída a mim', await p.evaluate(()=>document.getElementById('mytasks-list').innerHTML.includes('R01 KUKA')));

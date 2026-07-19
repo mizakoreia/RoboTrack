@@ -921,6 +921,16 @@
                 _unsubAll();
             }
         });
+        // Busca da Visão Geral: bind por listener (mais robusto que handler inline)
+        // + evento 'search' cobre o botão "x" de limpar em iOS/desktop.
+        (function(){
+            const s = document.getElementById('dash-search');
+            if (!s) return;
+            const apply = () => { dashSearch = s.value; ui.renderDashboard(); };
+            s.addEventListener('input', apply);
+            s.addEventListener('search', apply);
+        })();
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
         }

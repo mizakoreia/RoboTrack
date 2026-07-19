@@ -81,11 +81,11 @@
                 // Analytics Math Global Progress
                 let totRobots = 0, totTasks = 0, totDone = 0;
                 state.projects.forEach(p => {
-                    p.cells.forEach(c => {
-                        totRobots += c.robots.length;
-                        c.robots.forEach(r => {
-                            totTasks += r.tasks.length;
-                            totDone += r.tasks.filter(t => t.status === "Concluído").length;
+                    (p.cells || []).forEach(c => {
+                        totRobots += (c.robots || []).length;
+                        (c.robots || []).forEach(r => {
+                            totTasks += (r.tasks || []).length;
+                            totDone += (r.tasks || []).filter(t => t.status === "Concluído").length;
                         });
                     });
                 });
@@ -112,7 +112,7 @@
                 grid.dataset.reorder = 'project';
                 grid.innerHTML = visible.map(p => ui.buildCard({
                     id: p.id, iconName: 'factory', name: p.name,
-                    badge: `${p.cells.length} ${p.cells.length === 1 ? 'célula' : 'células'}`,
+                    badge: `${(p.cells||[]).length} ${(p.cells||[]).length === 1 ? 'célula' : 'células'}`,
                     pct: appState.calcProjectProgress(p),
                     foot: 'Visão macro', cta: 'Acessar',
                     editLabel: 'Renomear projeto', delLabel: 'Excluir projeto',
@@ -131,6 +131,7 @@
                 const grid = document.getElementById('project-cells-cards');
                 const hub = document.getElementById('project-hub');
 
+                if(!p.cells) p.cells = [];
                 if(p.cells.length === 0) {
                     hub.style.display = 'none';
                     grid.innerHTML = ui.buildEmpty('box', 'Nenhuma célula neste projeto.',
@@ -139,11 +140,11 @@
                 }
 
                 let totRobots = 0, totTasks = 0, totDone = 0;
-                p.cells.forEach(c => {
-                    totRobots += c.robots.length;
-                    c.robots.forEach(r => {
-                        totTasks += r.tasks.length;
-                        totDone += r.tasks.filter(t => t.status === "Concluído").length;
+                (p.cells || []).forEach(c => {
+                    totRobots += (c.robots || []).length;
+                    (c.robots || []).forEach(r => {
+                        totTasks += (r.tasks || []).length;
+                        totDone += (r.tasks || []).filter(t => t.status === "Concluído").length;
                     });
                 });
                 let globalPct = totTasks === 0 ? 0 : Math.round((totDone/totTasks)*100);
@@ -158,7 +159,7 @@
                 grid.dataset.reorder = 'cell';
                 grid.innerHTML = p.cells.map(c => ui.buildCard({
                     id: c.id, iconName: 'box', name: c.name,
-                    badge: `${c.robots.length} ${c.robots.length === 1 ? 'robô' : 'robôs'}`,
+                    badge: `${(c.robots||[]).length} ${(c.robots||[]).length === 1 ? 'robô' : 'robôs'}`,
                     pct: appState.calcCellProgress(c),
                     foot: 'Status global', cta: 'Acessar',
                     editLabel: 'Renomear célula', delLabel: 'Excluir célula',
@@ -179,6 +180,7 @@
                 const grid = document.getElementById('cell-robots-cards');
                 const hub = document.getElementById('cell-hub');
 
+                if(!c.robots) c.robots = [];
                 if(c.robots.length === 0) {
                     hub.style.display = 'none';
                     grid.innerHTML = ui.buildEmpty('bot', 'Nenhum robô adicionado ainda.',
@@ -187,9 +189,9 @@
                 }
 
                 let totTasks = 0, totDone = 0;
-                c.robots.forEach(r => {
-                    totTasks += r.tasks.length;
-                    totDone += r.tasks.filter(t => t.status === "Concluído").length;
+                (c.robots || []).forEach(r => {
+                    totTasks += (r.tasks || []).length;
+                    totDone += (r.tasks || []).filter(t => t.status === "Concluído").length;
                 });
                 let globalPct = totTasks === 0 ? 0 : Math.round((totDone/totTasks)*100);
 
