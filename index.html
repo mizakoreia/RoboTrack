@@ -218,6 +218,9 @@
     <button type="button" class="menu-item menu-item-danger" role="menuitem" onclick="firebase.auth().signOut()">
         <svg class="ic"><use href="#i-logout"></use></svg><span>Sair</span>
     </button>
+    <!-- Versão do build (igual ao cache do SW): confirma na hora se o aparelho
+         está rodando a última versão — diagnóstico de cache velho em 2 segundos. -->
+    <div class="menu-ver" id="app-build">build v24</div>
 </div>
 
 <!-- ============================ CONTEÚDO ============================ -->
@@ -252,15 +255,24 @@
                 <div class="header-lead">
                     <h1 class="title">Visão Geral</h1>
                     <p class="subtitle">Lista de todos os projetos cadastrados.</p>
-                    <div class="search-field">
-                        <svg class="ic search-ic"><use href="#i-search"></use></svg>
-                        <input type="search" id="dash-search" placeholder="Buscar projeto, célula ou robô…">
+                    <div class="search-bar">
+                        <div class="search-field">
+                            <svg class="ic search-ic"><use href="#i-search"></use></svg>
+                            <input type="search" id="dash-search" placeholder="Buscar projeto, célula ou robô…">
+                            <button type="button" class="search-clear" id="dash-search-clear" title="Limpar busca" aria-label="Limpar busca" style="display:none;">
+                                <svg class="ic ic-sm"><use href="#i-x"></use></svg>
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-primary search-go" id="dash-search-go">
+                            <svg class="ic"><use href="#i-search"></use></svg> Buscar
+                        </button>
                     </div>
                 </div>
                 <button class="btn btn-primary edit-only" onclick="uiActions.addProject()">
                     <svg class="ic"><use href="#i-plus"></use></svg> Novo Projeto
                 </button>
             </div>
+            <div id="search-results" style="display:none;"></div>
             <div id="dashboard-hub" class="hub-slot" style="display:none;"></div>
             <div class="grid" id="dashboard-cards"></div>
         </div>
