@@ -220,6 +220,45 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   ok('atribuído entre vários aparece em Minhas Tarefas', await p.evaluate(()=>document.getElementById('mytasks-list').innerHTML.includes('R01 KUKA')));
   await p.evaluate(()=>{ window.currentUserName='Rafael'; });
 
+  // 9a2c. NOTIFICAÇÕES (sininho)
+  // A atribuição de Bruna+Carlos (9a2b, feita por Rafael) deve ter criado 1 doc por alvo.
+  ok('atribuir cria notificações p/ os novos responsáveis', await p.evaluate(()=>{
+    const ns=[...window.__fs.store.entries()].filter(([k])=>/workspaces\/uidOwner\/notifications\//.test(k)).map(([,v])=>v);
+    return ns.some(n=>n.target==='Bruna'&&n.type==='assign') && ns.some(n=>n.target==='Carlos'&&n.type==='assign');
+  }));
+  ok('quem atribui não é notificado', await p.evaluate(()=>{
+    const ns=[...window.__fs.store.entries()].filter(([k])=>/notifications\//.test(k)).map(([,v])=>v);
+    return !ns.some(n=>n.target==='Rafael'&&n.type==='assign');
+  }));
+  // Avanço registrado por outra pessoa notifica os responsáveis (progress e done)
+  await p.evaluate(()=>{ const pj=state.projects[0]; nav('robot',pj.id,pj.cells[0].id,pj.cells[0].robots[0].id); });
+  await p.waitForTimeout(120);
+  await p.evaluate(()=>{ const t=state.projects[0].cells[0].robots[0].tasks[2]; uiActions.updateTask(t.id,'progress',60); });
+  await p.waitForTimeout(120);
+  ok('avanço gera notificação progress', await p.evaluate(()=>{
+    const ns=[...window.__fs.store.entries()].filter(([k])=>/notifications\//.test(k)).map(([,v])=>v);
+    return ns.some(n=>n.type==='progress'&&(n.target==='Bruna'||n.target==='Carlos'));
+  }));
+  await p.evaluate(()=>{ const t=state.projects[0].cells[0].robots[0].tasks[2]; uiActions.updateTask(t.id,'progress',100); });
+  await p.waitForTimeout(120);
+  ok('conclusão gera notificação done', await p.evaluate(()=>{
+    const ns=[...window.__fs.store.entries()].filter(([k])=>/notifications\//.test(k)).map(([,v])=>v);
+    return ns.some(n=>n.type==='done');
+  }));
+  // Badge + marcar como lida: cria uma notificação PARA Rafael (autor: Bruna)
+  await p.evaluate(()=>{ window.currentUserName='Bruna';
+    appState.notify(['Rafael'],'assign','Bruna atribuiu você à tarefa "Teste sino"',{pid:state.projects[0].id});
+    window.currentUserName='Rafael'; });
+  await p.waitForTimeout(250);
+  ok('sininho recebe a notificação em tempo real', await p.evaluate(()=>(state.myNotifs||[]).some(n=>n.msg.includes('Teste sino'))));
+  ok('badge mostra não-lidas', await p.evaluate(()=>{ const b=document.getElementById('notif-badge'); return b && b.style.display!=='none' && parseInt(b.textContent)>=1; }));
+  ok('abrir notificação marca como lida', await p.evaluate(()=>{
+    const n=(state.myNotifs||[]).find(x=>x.msg.includes('Teste sino'));
+    uiActions.openNotif(n.id);
+    const doc=[...window.__fs.store.entries()].find(([k])=>k.endsWith('notifications/'+n.id));
+    return n.read===true && doc && doc[1].read===true;
+  }));
+
   // 9a3. SWIPE-PARA-EXCLUIR (fiação; a física de toque é validada manualmente)
   await p.evaluate(()=>{ const p=state.projects[0],c=p.cells[0],r=c.robots[0]; nav('robot',p.id,c.id,r.id); });
   await p.waitForTimeout(120);

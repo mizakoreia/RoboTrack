@@ -48,6 +48,20 @@ service cloud.firestore {
         allow create: if signedIn() && (request.auth.uid == wsId || (isMember() && memberRole() == 'edit'));
         allow update, delete: if false;
       }
+
+      // Notificações (atribuição/avanço/conclusão): cria dono/editor; a única
+      // mutação permitida a membros é marcar como lida (chave 'read').
+      match /notifications/{notifId} {
+        allow read:   if signedIn() && (request.auth.uid == wsId || isMember());
+        allow create: if signedIn() && (request.auth.uid == wsId || (isMember() && memberRole() == 'edit'))
+                       && request.resource.data.read == false
+                       && request.resource.data.target is string
+                       && request.resource.data.msg is string
+                       && request.resource.data.msg.size() <= 500;
+        allow update: if signedIn() && (request.auth.uid == wsId || isMember())
+                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow delete: if signedIn() && request.auth.uid == wsId;
+      }
     }
 
     match /invites/{token} {

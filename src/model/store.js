@@ -18,6 +18,25 @@ const appState = {
             byName: window.currentUserName || null
         }).catch(e => console.error('[RoboTrack] addLog', e && e.message));
     },
+    // Notificações in-app: 1 doc por pessoa-alvo (endereçadas por NOME, como os
+    // assignees). Nunca notifica o próprio autor e nunca pode quebrar um save —
+    // por isso o catch silencioso (ex.: regras ainda não publicadas).
+    notify(targets, type, msg, ctx) {
+        const wref = this._wsRef(); if (!wref) return;
+        const me = window.currentUserName;
+        const uniq = [...new Set((targets || []).filter(n => n && n !== 'Não Atribuído' && n !== me))];
+        if (!uniq.length) return;
+        let ts; try { ts = firebase.firestore.FieldValue.serverTimestamp(); } catch(e){ ts = null; }
+        uniq.forEach(target => {
+            wref.collection('notifications').add({
+                target, type, msg,
+                byName: me || null,
+                ts, tsLocal: new Date().toLocaleString('pt-BR'),
+                read: false,
+                ctx: ctx || null
+            }).catch(e => console.warn('[RoboTrack] notify', e && e.message));
+        });
+    },
     load() { /* Firebase onSnapshot handles data loading */ },
     // --- Persistência granular (S-04/S-05): 1 documento por projeto ---
     _wsRef() {

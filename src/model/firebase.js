@@ -50,8 +50,10 @@ window.currentRole = 'owner';   // 'owner' | 'edit' | 'view'
 window.myWorkspaces = [];        // [{ id, name, role }]
 let _fsUnsub = null;
 let _fsUnsub2 = null;
+let _fsUnsub3 = null;
+let _notifSeen = null; // ids já vistos: a 1ª snapshot não dispara alertas de sistema
 let _migrating = false;
-function _unsubAll(){ if(_fsUnsub){_fsUnsub();_fsUnsub=null;} if(_fsUnsub2){_fsUnsub2();_fsUnsub2=null;} }
+function _unsubAll(){ if(_fsUnsub){_fsUnsub();_fsUnsub=null;} if(_fsUnsub2){_fsUnsub2();_fsUnsub2=null;} if(_fsUnsub3){_fsUnsub3();_fsUnsub3=null;} _notifSeen = null; }
 // Guarda o token do convite (se veio na URL) antes do fluxo de login.
 try { const _t = new URLSearchParams(location.search).get('convite'); if (_t) sessionStorage.setItem('rt_invite', _t); } catch(e){}
 
@@ -68,6 +70,7 @@ function subscribeWorkspace(wsId, role) {
     _applyRole();
     // Zera estado ao (re)abrir um workspace, evitando vazar dados do anterior.
     state.projects = []; state.logs = []; state.defaultTasks = [...defaultTemplates]; state.responsibles = ['Não Atribuído'];
+    state.myNotifs = [];
     if (window.currentUserName && !state.responsibles.includes(window.currentUserName)) state.responsibles.push(window.currentUserName);
     const wref = window._fbDB.collection('workspaces').doc(wsId);
     // Listener 1: configurações do workspace (sem os projetos).
@@ -125,6 +128,36 @@ function subscribeWorkspace(wsId, role) {
         });
         _reRender();
     }, err => console.error('[RoboTrack] listener projects:', err));
+    // Listener 3: minhas notificações (endereçadas por nome, como os assignees).
+    // Sem orderBy no servidor (evita índice composto) — ordena no cliente.
+    if (window.currentUserName) {
+        _fsUnsub3 = wref.collection('notifications').where('target', '==', window.currentUserName)
+            .onSnapshot(function(snap) {
+                const docs = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+                docs.sort((a, b) => {
+                    const ta = (a.ts && a.ts.toMillis) ? a.ts.toMillis() : 0;
+                    const tb = (b.ts && b.ts.toMillis) ? b.ts.toMillis() : 0;
+                    return tb - ta;
+                });
+                state.myNotifs = docs.slice(0, 50);
+                // Alerta de sistema só para docs NOVOS (não na carga inicial).
+                if (_notifSeen === null) {
+                    _notifSeen = new Set(docs.map(d => d.id));
+                } else {
+                    docs.filter(d => !d.read && !_notifSeen.has(d.id)).forEach(d => {
+                        _notifSeen.add(d.id);
+                        try {
+                            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                                const n = new Notification('RoboTrack', { body: d.msg, icon: 'icon-192.png', tag: d.id });
+                                n.onclick = () => { try { window.focus(); if (d.ctx && d.ctx.pid) nav('robot', d.ctx.pid, d.ctx.cid, d.ctx.rid); } catch(e){} n.close(); };
+                            }
+                        } catch(e){}
+                    });
+                    docs.forEach(d => _notifSeen.add(d.id));
+                }
+                if (typeof ui !== 'undefined' && ui.renderNotifs) ui.renderNotifs();
+            }, err => console.warn('[RoboTrack] listener notifications:', err && err.message));
+    }
 }
 
 function switchWorkspace(wsId) {

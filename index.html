@@ -59,6 +59,8 @@
     <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
     <symbol id="i-check-circle" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+    <symbol id="i-bell-check" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><polyline points="9 11 11 13 15 9"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
     <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
@@ -164,6 +166,22 @@
     </button>
 </div>
 
+<!-- Menu de notificações (sininho): lista + marcar lidas + alertas de sistema -->
+<div class="menu glass glass-sheen menu-notifs" id="menu-notifs" role="menu" aria-labelledby="notif-trigger">
+    <div class="menu-head menu-head-row">
+        <span class="menu-head-name">Notificações</span>
+        <button type="button" class="menu-link" id="notif-mark-all" onclick="uiActions.markAllNotifsRead()">Marcar todas como lidas</button>
+    </div>
+    <div class="menu-sep" role="separator"></div>
+    <div id="notif-list" class="notif-list"></div>
+    <div id="notif-perm-wrap" style="display:none;">
+        <div class="menu-sep" role="separator"></div>
+        <button type="button" class="menu-item" role="menuitem" onclick="uiActions.enableSystemAlerts()">
+            <svg class="ic"><use href="#i-bell-check"></use></svg><span>Ativar alertas do sistema</span>
+        </button>
+    </div>
+</div>
+
 <!-- Menu da conta (topo direito): sair, tema, adicionar usuário -->
 <div class="menu glass glass-sheen" id="menu-account" role="menu" aria-labelledby="account-trigger">
     <div class="menu-head">
@@ -197,6 +215,11 @@
             <span id="ws-role-badge" class="role-badge" style="display:none;"></span>
         </div>
         <div class="topbar-actions">
+            <button type="button" class="notif-trigger" id="notif-trigger" title="Notificações"
+                    aria-haspopup="true" aria-expanded="false" aria-controls="menu-notifs" aria-label="Notificações">
+                <svg class="ic"><use href="#i-bell"></use></svg>
+                <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
+            </button>
             <button type="button" class="account-trigger" id="account-trigger"
                     aria-haspopup="true" aria-expanded="false" aria-controls="menu-account">
                 <span class="avatar" id="topbar-avatar" aria-hidden="true"></span>
