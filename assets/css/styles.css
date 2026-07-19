@@ -321,6 +321,43 @@ body[data-glow="off"] .glass::after { background: none; }
 .account-chev { width: 15px; height: 15px; color: var(--text-muted); transition: transform .2s var(--ease); }
 .account-trigger[aria-expanded="true"] .account-chev { transform: rotate(180deg); }
 
+/* Sininho de notificações */
+.notif-trigger {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: var(--r-pill);
+    border: 1px solid var(--border-soft); background: var(--bg-raised);
+    color: var(--text-muted);
+    transition: background .18s var(--ease), border-color .18s var(--ease), color .18s var(--ease);
+}
+.notif-trigger:hover { background: var(--bg-hover); border-color: var(--border); color: var(--text-main); }
+.notif-trigger[aria-expanded="true"] { background: var(--bg-hover); border-color: color-mix(in oklab, var(--accent) 40%, transparent); color: var(--text-main); }
+.notif-badge {
+    position: absolute; top: -3px; right: -3px; min-width: 17px; height: 17px; padding: 0 4px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--r-pill); background: var(--danger-solid); color: #fff;
+    font-size: 0.66rem; font-weight: 700; line-height: 1;
+    border: 2px solid var(--bg-main); box-sizing: content-box;
+}
+.menu-notifs { width: min(360px, calc(100vw - 24px)); }
+.menu-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.menu-link { border: none; background: none; color: var(--accent-ink, var(--accent)); font-size: 0.76rem; font-weight: 600; cursor: pointer; padding: 2px 0; }
+.menu-link:hover { text-decoration: underline; }
+.notif-list { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; }
+.notif-empty { padding: 22px 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+.notif-item {
+    display: flex; align-items: flex-start; gap: 10px; width: 100%;
+    padding: 10px 14px; border: none; background: none; text-align: left; cursor: pointer;
+    border-radius: var(--r-sm); color: var(--text-main);
+}
+.notif-item:hover { background: var(--bg-hover); }
+.notif-item .ic { flex: none; margin-top: 2px; color: var(--text-muted); }
+.notif-item.unread .ic { color: var(--accent); }
+.notif-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.notif-msg { font-size: 0.83rem; line-height: 1.35; }
+.notif-item:not(.unread) .notif-msg { color: var(--text-muted); }
+.notif-when { font-size: 0.7rem; color: var(--text-muted); }
+.notif-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 6px; }
+
 /* -------------------------------- 6. MENUS -------------------------------- */
 /* Filhos diretos do <body> e position:fixed: nunca são cortados pelo overflow
    do .main nem pela sidebar. O JS posiciona a partir do retângulo do gatilho. */

@@ -312,6 +312,42 @@
                     </tr>`).join('') + `</tbody></table></div>`;
             },
 
+            // ===== NOTIFICAÇÕES: badge do sininho + lista do menu =====
+            renderNotifs() {
+                const badge = document.getElementById('notif-badge');
+                const list = document.getElementById('notif-list');
+                if (!badge || !list) return;
+                const notifs = state.myNotifs || [];
+                const unread = notifs.filter(n => !n.read).length;
+                badge.style.display = unread ? 'flex' : 'none';
+                badge.textContent = unread > 9 ? '9+' : unread;
+                const icoByType = { assign: 'user-plus', progress: 'history', done: 'check-circle' };
+                const ago = n => {
+                    const ms = (n.ts && n.ts.toMillis) ? n.ts.toMillis() : null;
+                    if (!ms) return n.tsLocal || '';
+                    const m = Math.round((Date.now() - ms) / 60000);
+                    if (m < 1) return 'agora';
+                    if (m < 60) return `há ${m} min`;
+                    const h = Math.round(m / 60);
+                    if (h < 24) return `há ${h} h`;
+                    return `há ${Math.round(h / 24)} d`;
+                };
+                list.innerHTML = !notifs.length
+                    ? '<div class="notif-empty">Nenhuma notificação por aqui.</div>'
+                    : notifs.slice(0, 20).map(n => `
+                        <button type="button" class="notif-item${n.read ? '' : ' unread'}" role="menuitem" onclick="uiActions.openNotif('${n.id}')">
+                            <svg class="ic ic-sm"><use href="#i-${icoByType[n.type] || 'bell'}"></use></svg>
+                            <span class="notif-body">
+                                <span class="notif-msg">${sanitize(n.msg)}</span>
+                                <span class="notif-when">${sanitize(ago(n))}</span>
+                            </span>
+                            ${n.read ? '' : '<span class="notif-dot" aria-hidden="true"></span>'}
+                        </button>`).join('');
+                // Oferece ativar alertas do sistema só enquanto a permissão está pendente
+                const perm = document.getElementById('notif-perm-wrap');
+                if (perm) perm.style.display = (typeof Notification !== 'undefined' && Notification.permission === 'default') ? 'block' : 'none';
+            },
+
             // ===== RELATÓRIO: protocolo industrial de aceite =====
             renderReport() {
                 // Seletor de escopo (preserva seleção entre re-renders)

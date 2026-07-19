@@ -335,12 +335,54 @@
                 const r = appState.getRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
                 const t = r && r.tasks.find(x => x.id === this._assignTid);
                 if (!t) return;
+                const before = taskPeople(t);
                 const sel = [...document.querySelectorAll('#assign-list .assign-cb:checked')].map(c => c.value);
                 t.assignees = sel;
                 t.resp = sel[0] || 'Não Atribuído'; // mantém compat com leituras legadas
                 appState.saveProject(activeContext.projectId);
+                // Notifica só quem ENTROU na tarefa agora (quem já estava não é spamado).
+                const added = sel.filter(n => !before.includes(n));
+                appState.notify(added, 'assign',
+                    `${window.currentUserName || 'Alguém'} atribuiu você à tarefa "${t.desc}" (robô ${r.name})`,
+                    { pid: activeContext.projectId, cid: activeContext.cellId, rid: activeContext.robotId, tid: t.id });
                 document.getElementById('modal-assign').classList.remove('active');
                 ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId);
+            },
+
+            // ---------- Notificações (sininho) ----------
+            _notifRef(id) {
+                const _db = window._fbDB; if (!_db || !window.currentWsId) return null;
+                return _db.collection('workspaces').doc(window.currentWsId).collection('notifications').doc(id);
+            },
+            openNotif(id) {
+                const n = (state.myNotifs || []).find(x => x.id === id);
+                if (!n) return;
+                if (!n.read) { n.read = true; const ref = this._notifRef(id); if (ref) ref.update({ read: true }).catch(()=>{}); }
+                ui.renderNotifs();
+                if (n.ctx && n.ctx.pid) nav('robot', n.ctx.pid, n.ctx.cid, n.ctx.rid);
+            },
+            markAllNotifsRead() {
+                (state.myNotifs || []).filter(n => !n.read).forEach(n => {
+                    n.read = true;
+                    const ref = this._notifRef(n.id); if (ref) ref.update({ read: true }).catch(()=>{});
+                });
+                ui.renderNotifs();
+            },
+            enableSystemAlerts() {
+                try {
+                    if (typeof Notification !== 'undefined' && Notification.requestPermission)
+                        Notification.requestPermission().then(() => ui.renderNotifs());
+                } catch(e){}
+            },
+
+            // Notifica os responsáveis (menos o autor) sobre avanço/conclusão.
+            _notifyTaskEvent(t, r, comment) {
+                const done = t.progress === 100;
+                const msg = done
+                    ? `Tarefa "${t.desc}" (robô ${r.name}) foi concluída por ${window.currentUserName || '—'}`
+                    : `${window.currentUserName || 'Alguém'} registrou ${t.progress}% na tarefa "${t.desc}" (robô ${r.name})${comment ? ': ' + comment : ''}`;
+                appState.notify(taskPeople(t), done ? 'done' : 'progress', msg,
+                    { pid: activeContext.projectId, cid: activeContext.cellId, rid: activeContext.robotId, tid: t.id });
             },
 
             updateTask(tid, field, val) {
@@ -349,6 +391,7 @@
                 const t = r.tasks.find(x => x.id === tid);
                 if(t) {
                     let _settingsTouched = false;
+                    const _oldProgress = t.progress || 0, _oldStatus = t.status;
                     // Auto-assign: usa window.currentUserName como fallback seguro caso auth.currentUser
                     // ainda esteja null durante a inicialização do Firebase Auth
                     const _liveUser = auth.currentUser;
@@ -384,6 +427,13 @@
                     
                     appState.saveProject(activeContext.projectId);
                     if (_settingsTouched) appState.saveSettings();
+                    // Notifica os responsáveis quando o avanço vem de outra pessoa
+                    // (progress 0 = reset Pendente/N/A, não é avanço — silêncio).
+                    if ((field === 'progress' || field === 'status')
+                        && (t.progress !== _oldProgress || t.status !== _oldStatus) && t.progress > 0) {
+                        const _c = this._pendingAdvanceComment; this._pendingAdvanceComment = null;
+                        this._notifyTaskEvent(t, r, _c);
+                    }
                     ui.renderRobot(activeContext.projectId, activeContext.cellId, activeContext.robotId); // Fully re-render to secure UI state mapping seamlessly
                     
                     if((field === 'progress' || field === 'status') && t.progress === 100) {
@@ -522,6 +572,7 @@
                 this._advanceTid = null;
                 document.getElementById('modal-advance').classList.remove('active');
                 // Delegar a transição mantém: auto-status, auto-resp, log S-09 no 100%, saveProject, re-render
+                uiActions._pendingAdvanceComment = comment; // vai junto na notificação
                 uiActions.updateTask(tid, 'progress', to);
             },
             openTaskHistory(tid) {
@@ -653,7 +704,7 @@
                 // Escolher uma opção sempre fecha o menu. Os handlers inline dos
                 // itens já rodaram quando este listener (bubbling) dispara.
                 menu.addEventListener('click', e => {
-                    if (e.target.closest('.menu-item')) this.closeMenu();
+                    if (e.target.closest('.menu-item, .notif-item')) this.closeMenu();
                 });
 
                 // Setas percorrem os itens; Esc devolve o foco ao gatilho.
@@ -714,6 +765,7 @@
             initMenus() {
                 this.bindMenu('user-menu-trigger', 'menu-workspace', { up: true });
                 this.bindMenu('account-trigger', 'menu-account', { alignRight: true });
+                this.bindMenu('notif-trigger', 'menu-notifs', { alignRight: true });
 
                 document.addEventListener('click', () => this.closeMenu());
                 document.addEventListener('keydown', e => {
@@ -898,6 +950,7 @@
             else if (id === 'settings') ui.renderSettings();
             else if (id === 'report') ui.renderReport();
             else if (id === 'mytasks') ui.renderMyTasks();
+            if (ui.renderNotifs) ui.renderNotifs();
         }
 
         auth.onAuthStateChanged(async function(user) {
