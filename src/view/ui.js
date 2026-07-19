@@ -70,6 +70,19 @@
             renderDashboard() {
                 const grid = document.getElementById('dashboard-cards');
                 const hub = document.getElementById('dashboard-hub');
+                const results = document.getElementById('search-results');
+                const clearBtn = document.getElementById('dash-search-clear');
+                const q = (dashSearch || '').trim();
+                if (clearBtn) clearBtn.style.display = q ? 'grid' : 'none';
+
+                // Busca ativa: a lista de resultados É a resposta — hub e cards saem de cena.
+                if (q) {
+                    if (results) { results.style.display = 'block'; ui.renderSearchResults(q); }
+                    hub.style.display = 'none';
+                    grid.innerHTML = '';
+                    return;
+                }
+                if (results) { results.style.display = 'none'; results.innerHTML = ''; }
 
                 if(!state.projects || state.projects.length === 0) {
                     hub.style.display = 'none';
@@ -98,19 +111,8 @@
                     { k: 'Tarefas concluídas', v: `<span class="ink-success">${totDone}</span> / ${totTasks}` }
                 ], globalPct, 'de progresso físico global');
 
-                // Busca: projeto entra se o nome dele, de uma célula ou de um robô casar
-                const q = (dashSearch || '').trim().toLowerCase();
-                const visible = !q ? state.projects : state.projects.filter(p =>
-                    (p.name||'').toLowerCase().includes(q) ||
-                    (p.cells||[]).some(c => (c.name||'').toLowerCase().includes(q) ||
-                        (c.robots||[]).some(r => (r.name||'').toLowerCase().includes(q))));
-                if (q && !visible.length) {
-                    grid.innerHTML = ui.buildEmpty('search', `Nada encontrado para "${sanitize(q)}".`);
-                    return;
-                }
-
                 grid.dataset.reorder = 'project';
-                grid.innerHTML = visible.map(p => ui.buildCard({
+                grid.innerHTML = state.projects.map(p => ui.buildCard({
                     id: p.id, iconName: 'factory', name: p.name,
                     badge: `${(p.cells||[]).length} ${(p.cells||[]).length === 1 ? 'célula' : 'células'}`,
                     pct: appState.calcProjectProgress(p),
@@ -121,6 +123,44 @@
                     onDelete: `uiActions.deleteProject('${p.id}', true)`,
                     onDeleteInline: `uiActions.deleteProject('${p.id}')`
                 })).join('');
+            },
+
+            // Busca em 3 níveis: lista plana de acertos clicáveis (projeto/célula/robô),
+            // cada um navegando direto pro lugar certo.
+            renderSearchResults(q) {
+                const el = document.getElementById('search-results');
+                if (!el) return;
+                const ql = q.toLowerCase();
+                const hits = [];
+                (state.projects || []).forEach(p => {
+                    if ((p.name || '').toLowerCase().includes(ql))
+                        hits.push({ ico: 'factory', name: p.name, where: 'Projeto', go: `nav('project','${p.id}')` });
+                    (p.cells || []).forEach(c => {
+                        if ((c.name || '').toLowerCase().includes(ql))
+                            hits.push({ ico: 'box', name: c.name, where: `Célula · em ${p.name}`, go: `nav('cell','${p.id}','${c.id}')` });
+                        (c.robots || []).forEach(r => {
+                            if ((r.name || '').toLowerCase().includes(ql))
+                                hits.push({ ico: 'bot', name: r.name, where: `Robô · em ${c.name} · ${p.name}`, go: `nav('robot','${p.id}','${c.id}','${r.id}')` });
+                        });
+                    });
+                });
+                if (!hits.length) {
+                    el.innerHTML = ui.buildEmpty('search', `Nada encontrado para "${sanitize(q)}".`);
+                    return;
+                }
+                el.innerHTML = `
+                    <div class="panel glass search-panel">
+                        <div class="search-count">${hits.length} resultado${hits.length === 1 ? '' : 's'} para "${sanitize(q)}"</div>
+                        ${hits.map(h => `
+                        <button type="button" class="search-item" onclick="${h.go}">
+                            <span class="search-item-ic">${icon(h.ico)}</span>
+                            <span class="search-item-body">
+                                <span class="search-item-name">${sanitize(h.name)}</span>
+                                <span class="search-item-where">${sanitize(h.where)}</span>
+                            </span>
+                            ${icon('arrow-right', 'ic-sm search-item-go')}
+                        </button>`).join('')}
+                    </div>`;
             },
 
             renderProject(pid) {

@@ -974,14 +974,19 @@
                 _unsubAll();
             }
         });
-        // Busca da Visão Geral: bind por listener (mais robusto que handler inline)
-        // + evento 'search' cobre o botão "x" de limpar em iOS/desktop.
+        // Busca da Visão Geral: um handler só para todas as entradas —
+        // digitação ao vivo, tecla "buscar" do teclado, Enter, botão Buscar e limpar.
         (function(){
             const s = document.getElementById('dash-search');
             if (!s) return;
             const apply = () => { dashSearch = s.value; ui.renderDashboard(); };
             s.addEventListener('input', apply);
             s.addEventListener('search', apply);
+            s.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); apply(); s.blur(); } });
+            const go = document.getElementById('dash-search-go');
+            if (go) go.addEventListener('click', () => { apply(); s.blur(); });
+            const clear = document.getElementById('dash-search-clear');
+            if (clear) clear.addEventListener('click', () => { s.value = ''; apply(); s.focus(); });
         })();
 
         if ('serviceWorker' in navigator) {

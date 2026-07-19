@@ -184,20 +184,36 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   await p.evaluate(()=>document.getElementById('modal-task-history').classList.remove('active'));
 
   // 9a2. BUSCA + MINHAS TAREFAS
+  await p.evaluate(()=>{ document.querySelectorAll('.modal-overlay.active').forEach(m=>m.classList.remove('active')); });
   await p.evaluate(()=>{ window.currentRole='owner'; document.body.dataset.role='owner'; nav('dashboard'); });
   await p.waitForTimeout(120);
   await p.evaluate(()=>{ dashSearch='inexistente-xyz'; ui.renderDashboard(); });
-  ok('busca sem match mostra vazio', await p.evaluate(()=>document.getElementById('dashboard-cards').innerHTML.includes('Nada encontrado')));
+  ok('busca sem match mostra vazio', await p.evaluate(()=>document.getElementById('search-results').innerHTML.includes('Nada encontrado')));
   await p.evaluate(()=>{ dashSearch='KUKA'; ui.renderDashboard(); });
-  ok('busca por robô acha o projeto', await p.evaluate(()=>document.getElementById('dashboard-cards').innerHTML.includes('Projeto VW')));
-  // Digitação REAL no campo (bind via addEventListener) + doc de projeto incompleto
-  // (sem 'cells', como um criado manualmente no console) não pode quebrar o render.
+  ok('busca por robô lista o ROBÔ como resultado', await p.evaluate(()=>{ const h=document.getElementById('search-results').innerHTML; return h.includes('R01 KUKA') && h.includes('Robô ·'); }));
+  // Digitação REAL no campo + doc de projeto incompleto não pode quebrar o render.
   await p.evaluate(()=>{ state.projects.push({ id:'incompleto', name:'Doc Incompleto' }); dashSearch=''; });
   await p.fill('#dash-search', '');
   await p.type('#dash-search', 'KUKA');
   await p.waitForTimeout(150);
-  ok('digitar no campo filtra mesmo com doc incompleto no state', await p.evaluate(()=>{ const h=document.getElementById('dashboard-cards').innerHTML; return dashSearch==='KUKA' && h.includes('Projeto VW') && !h.includes('Doc Incompleto'); }));
-  await p.fill('#dash-search', '');
+  ok('digitar lista resultados mesmo com doc incompleto no state', await p.evaluate(()=>{ const h=document.getElementById('search-results').innerHTML; return dashSearch==='KUKA' && h.includes('R01 KUKA') && !h.includes('Doc Incompleto'); }));
+  // Botão Buscar aplica; clicar num resultado navega até o robô
+  await p.evaluate(()=>{ document.getElementById('dash-search').value='Célula LD'; });
+  await p.click('#dash-search-go');
+  await p.waitForTimeout(150);
+  ok('botão Buscar lista a célula', await p.evaluate(()=>document.getElementById('search-results').innerHTML.includes('Célula ·')));
+  await p.evaluate(()=>{ document.getElementById('dash-search').value='KUKA'; });
+  await p.click('#dash-search-go');
+  await p.waitForTimeout(150);
+  await p.click('#search-results .search-item');
+  await p.waitForTimeout(150);
+  ok('clicar no resultado navega pra view do robô', await p.evaluate(()=>document.getElementById('view-robot').classList.contains('active')));
+  await p.evaluate(()=>{ nav('dashboard'); });
+  await p.waitForTimeout(120);
+  // Limpar restaura o dashboard normal (cards de volta)
+  await p.click('#dash-search-clear');
+  await p.waitForTimeout(150);
+  ok('limpar busca restaura os cards', await p.evaluate(()=>dashSearch==='' && document.getElementById('dashboard-cards').innerHTML.includes('Projeto VW') && document.getElementById('search-results').style.display==='none'));
   await p.evaluate(()=>{ state.projects = state.projects.filter(x=>x.id!=='incompleto'); dashSearch=''; ui.renderDashboard(); });
   await p.evaluate(()=>{ const t=state.projects[0].cells[0].robots[0].tasks[2]; t.resp='Rafael'; t.status='Em Andamento'; t.progress=30; nav('mytasks'); });
   await p.waitForTimeout(120);
