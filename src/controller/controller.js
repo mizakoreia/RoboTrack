@@ -822,6 +822,13 @@
                     sb.classList.remove('nav-open');
                     tg.setAttribute('aria-expanded', 'false');
                 });
+                // Logo/marca = voltar pra home (Visão Geral); no mobile fecha a gaveta.
+                const brand = document.getElementById('brand-home');
+                if (brand) brand.addEventListener('click', () => {
+                    nav('dashboard');
+                    sb.classList.remove('nav-open');
+                    tg.setAttribute('aria-expanded', 'false');
+                });
             },
 
             // ---------- Luz que segue o cursor ----------
