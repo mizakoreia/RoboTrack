@@ -111,8 +111,18 @@ function subscribeWorkspace(wsId, role) {
         }
     });
     // Listener 2: projetos, cada um em seu documento (concorrência isolada).
+    // Normaliza na chegada: docs incompletos (ex.: criados manualmente no console,
+    // sem 'cells') quebravam todos os renders com "undefined.forEach".
     _fsUnsub2 = wref.collection('projects').orderBy('_ord').onSnapshot(function(snap) {
-        state.projects = snap.docs.map(doc => Object.assign({ id: doc.id }, doc.data()));
+        state.projects = snap.docs.map(doc => {
+            const p = Object.assign({ id: doc.id }, doc.data());
+            if (!Array.isArray(p.cells)) p.cells = [];
+            p.cells.forEach(c => {
+                if (!Array.isArray(c.robots)) c.robots = [];
+                c.robots.forEach(r => { if (!Array.isArray(r.tasks)) r.tasks = []; });
+            });
+            return p;
+        });
         _reRender();
     }, err => console.error('[RoboTrack] listener projects:', err));
 }
