@@ -375,6 +375,83 @@
                 } catch(e){}
             },
 
+            // ---------- Relatório: modo e exportação Excel ----------
+            setReportMode(m) { reportMode = m; ui.renderReport(); },
+            // Carrega a lib de .xlsx (com estilos) sob demanda — só quem exporta paga o download.
+            _loadXlsxLib() {
+                return new Promise((resolve, reject) => {
+                    if (window.XLSX) return resolve(window.XLSX);
+                    const s = document.createElement('script');
+                    s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+                    s.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('lib não expôs XLSX'));
+                    s.onerror = () => reject(new Error('sem conexão com o CDN'));
+                    document.head.appendChild(s);
+                });
+            },
+            async exportMatrixXlsx() {
+                const sel = document.getElementById('report-scope');
+                const scope = sel ? sel.value : 'all';
+                const projects = scope === 'all' ? (state.projects || []) : (state.projects || []).filter(p => p.id === scope);
+                const data = ui.buildMatrixData(projects);
+                if (!data.length) return alert('Nenhum robô no escopo selecionado.');
+                let XLSX;
+                try { XLSX = await this._loadXlsxLib(); }
+                catch (e) { return alert('Não foi possível carregar o gerador de Excel (' + e.message + '). Verifique a internet e tente de novo.'); }
+
+                const border = { top:{style:'thin',color:{rgb:'FFB9C0CC'}}, bottom:{style:'thin',color:{rgb:'FFB9C0CC'}}, left:{style:'thin',color:{rgb:'FFB9C0CC'}}, right:{style:'thin',color:{rgb:'FFB9C0CC'}} };
+                const stHead  = { font:{bold:true,color:{rgb:'FFFFFFFF'},sz:10}, fill:{fgColor:{rgb:'FF1F3864'}}, alignment:{horizontal:'center',vertical:'center',wrapText:true}, border };
+                const stCat   = { font:{bold:true,color:{rgb:'FFFFFFFF'},sz:10}, fill:{fgColor:{rgb:'FF2E5AAC'}}, alignment:{horizontal:'center',vertical:'center',wrapText:true}, border };
+                const stTask  = { font:{sz:8}, fill:{fgColor:{rgb:'FFDCE6F1'}}, alignment:{horizontal:'center',vertical:'center',wrapText:true,textRotation:90}, border };
+                const stOk    = { font:{sz:9,color:{rgb:'FF1E6B3C'}}, fill:{fgColor:{rgb:'FFC6EFCE'}}, alignment:{horizontal:'center'}, border, numFmt:'0%' };
+                const stPart  = { font:{sz:9,color:{rgb:'FF8A5A00'}}, fill:{fgColor:{rgb:'FFFFEB9C'}}, alignment:{horizontal:'center'}, border, numFmt:'0%' };
+                const stZero  = { font:{sz:9,color:{rgb:'FF7A7F8A'}}, alignment:{horizontal:'center'}, border, numFmt:'0%' };
+                const stNA    = { font:{sz:9,color:{rgb:'FF7A7F8A'}}, fill:{fgColor:{rgb:'FFEDEDED'}}, alignment:{horizontal:'center'}, border };
+                const stText  = { font:{sz:9}, alignment:{vertical:'center'}, border };
+
+                const wb = XLSX.utils.book_new();
+                const used = {};
+                data.forEach(m => {
+                    // Nome de aba: máx 31 chars, único, sem caracteres proibidos
+                    let name = (m.cell || 'Célula').replace(/[\\\/\?\*\[\]:]/g, ' ').slice(0, 28) || 'Célula';
+                    if (used[name] != null) { used[name]++; name = name.slice(0, 25) + ' (' + used[name] + ')'; } else used[name] = 0;
+
+                    const nTaskCols = m.cats.reduce((a, g) => a + g.tasks.length, 0);
+                    const rows = [];
+                    rows.push([{ v: m.project + ' · ' + m.cell + ' — Status de Comissionamento (RoboTrack)', s: { font:{bold:true,sz:12} } }]);
+                    // Linha 2: cabeçalhos fixos + grupos de fase (merges por categoria)
+                    const r2 = [ {v:'Robô',s:stHead}, {v:'Aplicação',s:stHead}, {v:'%',s:stHead} ];
+                    m.cats.forEach(g => { g.tasks.forEach((_, i) => r2.push(i === 0 ? { v:g.cat, s:stCat } : { v:'', s:stCat })); });
+                    rows.push(r2);
+                    // Linha 3: tarefas (verticais)
+                    const r3 = [ {v:'',s:stHead}, {v:'',s:stHead}, {v:'',s:stHead} ];
+                    m.cats.forEach(g => g.tasks.forEach(d => r3.push({ v:d, s:stTask })));
+                    rows.push(r3);
+                    // Dados
+                    m.rows.forEach(r => {
+                        const row = [ {v:r.name,s:stText}, {v:r.app,s:stText}, {v:r.pct/100,s:(r.pct>=100?stOk:r.pct>0?stPart:stZero)} ];
+                        m.cats.forEach(g => g.tasks.forEach(d => {
+                            const v = r.vals[g.cat + ' ' + d];
+                            if (!v) row.push({ v:'·', s:stZero });
+                            else if (v.na) row.push({ v:'N/A', s:stNA });
+                            else row.push({ v:v.pct/100, s:(v.pct>=100?stOk:v.pct>0?stPart:stZero) });
+                        }));
+                        rows.push(row);
+                    });
+
+                    const ws = XLSX.utils.aoa_to_sheet(rows);
+                    // Merges: título; rowspan dos 3 fixos; colspan de cada categoria
+                    ws['!merges'] = [ { s:{r:0,c:0}, e:{r:0,c:2+nTaskCols} },
+                        { s:{r:1,c:0}, e:{r:2,c:0} }, { s:{r:1,c:1}, e:{r:2,c:1} }, { s:{r:1,c:2}, e:{r:2,c:2} } ];
+                    let col = 3;
+                    m.cats.forEach(g => { if (g.tasks.length > 1) ws['!merges'].push({ s:{r:1,c:col}, e:{r:1,c:col+g.tasks.length-1} }); col += g.tasks.length; });
+                    ws['!cols'] = [ { wch:22 }, { wch:18 }, { wch:7 } ].concat(Array(nTaskCols).fill({ wch:5.5 }));
+                    ws['!rows'] = [ { hpt:20 }, { hpt:20 }, { hpt:95 } ];
+                    XLSX.utils.book_append_sheet(wb, ws, name);
+                });
+                const stamp = new Date().toISOString().slice(0,10);
+                XLSX.writeFile(wb, 'RoboTrack_Comissionamento_' + stamp + '.xlsx');
+            },
+
             // Notifica os responsáveis (menos o autor) sobre avanço/conclusão.
             _notifyTaskEvent(t, r, comment) {
                 const done = t.progress === 100;

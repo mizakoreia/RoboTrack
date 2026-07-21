@@ -315,6 +315,34 @@ const R = []; const ok=(n,c)=>R.push([c?'PASS':'FAIL',n]);
   ok('conclusões listadas', await p.evaluate(()=>document.getElementById('report-sheet').innerHTML.includes('Conclusões')));
   ok('escopo filtra por projeto', await p.evaluate(()=>{ const s=document.getElementById('report-scope'); s.value=state.projects[0].id; ui.renderReport(); return document.querySelectorAll('#report-sheet .rpt-project').length >= 1; }));
 
+  // 9c. MATRIZ robôs × tarefas
+  ok('buildMatrixData agrupa por categoria e marca N/A', await p.evaluate(()=>{
+    const m = ui.buildMatrixData([{ name:'P', cells:[{ name:'C', robots:[
+      { name:'R1', application:'Solda', tasks:[
+        { cat:'Fase A', desc:'T1', status:'Concluído', progress:100 },
+        { cat:'Fase A', desc:'T2', status:'N/A', progress:0 },
+        { cat:'Fase B', desc:'T3', status:'Em Andamento', progress:40 } ] },
+      { name:'R2', application:'Handling', tasks:[
+        { cat:'Fase A', desc:'T1', status:'Pendente', progress:0 } ] } ] }] }]);
+    const c = m[0];
+    return m.length===1 && c.cats.length===2 && c.cats[0].tasks.length===2
+      && c.rows.length===2 && c.rows[0].vals['Fase A T2'].na===true
+      && c.rows[0].vals['Fase B T3'].pct===40 && !c.rows[1].vals['Fase B T3'];
+  }));
+  await p.evaluate(()=>{ uiActions.setReportMode('matrix'); });
+  await p.waitForTimeout(120);
+  ok('modo Matriz renderiza a tabela com robô e categoria', await p.evaluate(()=>{
+    const h=document.getElementById('report-matrix').innerHTML;
+    return document.getElementById('report-matrix').style.display!=='none' && h.includes('mx-table') && h.includes('R01 KUKA');
+  }));
+  ok('botão Exportar Excel só no modo Matriz', await p.evaluate(()=>{
+    const x=document.getElementById('btn-report-xlsx').style.display!=='none';
+    const pr=document.getElementById('btn-report-print').style.display==='none';
+    uiActions.setReportMode('proto');
+    const back=document.getElementById('btn-report-xlsx').style.display==='none';
+    return x && pr && back;
+  }));
+
   // 10. Logout -> login volta
   await p.evaluate(()=>{ window.currentRole='owner'; firebase.auth().signOut(); });
   await p.waitForTimeout(200);

@@ -52,6 +52,7 @@ let state = {
 };
 let currentTaskFilter = 'T'; // T: Todos, P: Pendentes, C: Concluídos
 let dashSearch = ''; // filtro de busca da Visão Geral
+let reportMode = 'proto'; // formato do relatório: 'proto' (protocolo A4) | 'matrix' (robôs × tarefas)
 
 // Responsáveis de uma tarefa (múltiplos). Aceita o formato novo (assignees[])
 // e migra o legado (resp: string única) na leitura, sem precisar persistir.

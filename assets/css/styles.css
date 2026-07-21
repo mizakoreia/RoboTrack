@@ -827,6 +827,27 @@ body[data-role="view"] .edit-only { display: none !important; }
 body[data-role="view"] #robot-tasks-table select,
 body[data-role="view"] #robot-tasks-table input { pointer-events: none !important; opacity: 0.65; }
 
+/* --------------------- 15b. MATRIZ robôs × tarefas ------------------------ */
+.report-mode { display: flex; gap: 6px; align-items: center; }
+.mx-block { padding: 14px; margin-bottom: 20px; }
+.mx-title { font-size: 0.92rem; color: var(--text-muted); padding: 2px 4px 12px; }
+.mx-title b { color: var(--text-main); }
+.mx-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.mx-table { border-collapse: collapse; font-size: 0.74rem; min-width: 100%; }
+.mx-table th, .mx-table td { border: 1px solid var(--border-soft); padding: 4px 6px; text-align: center; white-space: nowrap; }
+.mx-cat { background: color-mix(in oklab, var(--accent) 22%, transparent); font-weight: 700; font-size: 0.7rem; letter-spacing: 0.03em; }
+.mx-task { background: var(--bg-sunken); vertical-align: bottom; height: 118px; min-width: 30px; max-width: 34px; }
+.mx-task span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.66rem; font-weight: 500; color: var(--text-muted); max-height: 108px; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+.mx-robot-h, .mx-app-h, .mx-pct-h { background: color-mix(in oklab, var(--accent) 14%, transparent); font-size: 0.72rem; }
+.mx-robot { text-align: left; font-weight: 600; position: sticky; left: 0; background: var(--bg-menu); z-index: 1; }
+.mx-app { text-align: left; color: var(--text-muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.mx-pct { font-weight: 700; font-variant-numeric: tabular-nums; }
+.mx-ok   { background: color-mix(in oklab, var(--success) 22%, transparent); color: var(--success-ink, var(--success)); font-weight: 600; }
+.mx-part { background: color-mix(in oklab, var(--warning) 20%, transparent); color: var(--warning-ink, var(--warning)); font-weight: 600; }
+.mx-zero { color: var(--text-muted); }
+.mx-na   { background: var(--bg-raised); color: var(--text-muted); }
+.mx-void { color: var(--text-muted); opacity: .4; }
+
 /* ------------------------------ 15. RELATÓRIO ----------------------------- */
 /* Folha branca com contraste de documento — independente do tema do app. */
 .rpt-sheet { background: #fff; color: #111827; max-width: 900px; margin: 0 auto; padding: 34px 38px; border-radius: 4px; box-shadow: 0 8px 40px rgba(0,0,0,0.45); font-size: 0.85rem; line-height: 1.45; }
