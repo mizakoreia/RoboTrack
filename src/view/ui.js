@@ -389,6 +389,66 @@
             },
 
             // ===== RELATÓRIO: protocolo industrial de aceite =====
+            // ===== MATRIZ robôs × tarefas (formato quadro de comissionamento) =====
+            // Uma matriz por célula: linhas = robôs; colunas = união das tarefas dos
+            // robôs da célula, agrupadas por categoria (fase). Valor = % ou N/A.
+            buildMatrixData(projects) {
+                const cells = [];
+                (projects || []).forEach(p => (p.cells || []).forEach(c => {
+                    const cats = [];           // [{ cat, tasks: [desc...] }] na ordem de aparição
+                    const catIdx = {};
+                    (c.robots || []).forEach(r => (r.tasks || []).forEach(t => {
+                        const cat = t.cat || 'Geral';
+                        if (!(cat in catIdx)) { catIdx[cat] = cats.length; cats.push({ cat, tasks: [] }); }
+                        const g = cats[catIdx[cat]];
+                        if (!g.tasks.includes(t.desc)) g.tasks.push(t.desc);
+                    }));
+                    const rows = (c.robots || []).map(r => {
+                        const vals = {};
+                        (r.tasks || []).forEach(t => {
+                            vals[(t.cat || 'Geral') + ' ' + t.desc] =
+                                t.status === 'N/A' ? { na: true } : { pct: t.progress || 0 };
+                        });
+                        return { name: r.name, app: r.application || '—', pct: appState.calcRobotProgress(r), vals };
+                    });
+                    if (rows.length) cells.push({ project: p.name, cell: c.name, cats, rows });
+                }));
+                return cells;
+            },
+            renderMatrix(projects) {
+                const el = document.getElementById('report-matrix');
+                if (!el) return;
+                const data = ui.buildMatrixData(projects);
+                if (!data.length) { el.innerHTML = ui.buildEmpty('report', 'Nenhum robô no escopo selecionado.'); return; }
+                el.innerHTML = data.map(m => {
+                    const groupHead = m.cats.map(g => `<th colspan="${g.tasks.length}" class="mx-cat">${sanitize(g.cat)}</th>`).join('');
+                    const taskHead = m.cats.map(g => g.tasks.map(d => `<th class="mx-task"><span>${sanitize(d)}</span></th>`).join('')).join('');
+                    const body = m.rows.map(r => {
+                        const tds = m.cats.map(g => g.tasks.map(d => {
+                            const v = r.vals[g.cat + ' ' + d];
+                            if (!v) return '<td class="mx-void">·</td>';
+                            if (v.na) return '<td class="mx-na">N/A</td>';
+                            const cls = v.pct >= 100 ? 'mx-ok' : v.pct > 0 ? 'mx-part' : 'mx-zero';
+                            return `<td class="${cls}">${v.pct}%</td>`;
+                        }).join('')).join('');
+                        return `<tr><td class="mx-robot">${sanitize(r.name)}</td><td class="mx-app">${sanitize(r.app)}</td><td class="mx-pct">${r.pct}%</td>${tds}</tr>`;
+                    }).join('');
+                    return `
+                    <div class="panel glass mx-block">
+                        <div class="mx-title">${sanitize(m.project)} · <b>${sanitize(m.cell)}</b></div>
+                        <div class="mx-scroll">
+                            <table class="mx-table">
+                                <thead>
+                                    <tr><th rowspan="2" class="mx-robot-h">Robô</th><th rowspan="2" class="mx-app-h">Aplicação</th><th rowspan="2" class="mx-pct-h">%</th>${groupHead}</tr>
+                                    <tr>${taskHead}</tr>
+                                </thead>
+                                <tbody>${body}</tbody>
+                            </table>
+                        </div>
+                    </div>`;
+                }).join('');
+            },
+
             renderReport() {
                 // Seletor de escopo (preserva seleção entre re-renders)
                 const sel = document.getElementById('report-scope');
@@ -398,6 +458,26 @@
                 sel.value = [...sel.options].some(o => o.value === prev) ? prev : 'all';
                 const scope = sel.value;
                 const projects = scope === 'all' ? (state.projects || []) : (state.projects || []).filter(p => p.id === scope);
+
+                // Alternância Protocolo (folha A4) × Matriz (robôs × tarefas)
+                const sheetEl = document.getElementById('report-sheet');
+                const matrixEl = document.getElementById('report-matrix');
+                const btnPrint = document.getElementById('btn-report-print');
+                const btnXlsx = document.getElementById('btn-report-xlsx');
+                const bProto = document.getElementById('rmode-proto'), bMatrix = document.getElementById('rmode-matrix');
+                if (bProto) bProto.classList.toggle('active', reportMode !== 'matrix');
+                if (bMatrix) bMatrix.classList.toggle('active', reportMode === 'matrix');
+                if (reportMode === 'matrix') {
+                    if (sheetEl) sheetEl.style.display = 'none';
+                    if (matrixEl) { matrixEl.style.display = 'block'; ui.renderMatrix(projects); }
+                    if (btnPrint) btnPrint.style.display = 'none';
+                    if (btnXlsx) btnXlsx.style.display = '';
+                    return;
+                }
+                if (sheetEl) sheetEl.style.display = '';
+                if (matrixEl) matrixEl.style.display = 'none';
+                if (btnPrint) btnPrint.style.display = '';
+                if (btnXlsx) btnXlsx.style.display = 'none';
 
                 const SYM = { 'Concluído':'✓', 'Em Andamento':'◐', 'N/A':'—', 'Pendente':'○' };
                 const CLS = { 'Concluído':'ok', 'Em Andamento':'part', 'N/A':'na', 'Pendente':'pend' };

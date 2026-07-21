@@ -220,7 +220,7 @@
     </button>
     <!-- Versão do build (igual ao cache do SW): confirma na hora se o aparelho
          está rodando a última versão — diagnóstico de cache velho em 2 segundos. -->
-    <div class="menu-ver" id="app-build">build v25</div>
+    <div class="menu-ver" id="app-build">build v26</div>
 </div>
 
 <!-- ============================ CONTEÚDO ============================ -->
@@ -371,12 +371,20 @@
                         <label class="form-label" for="report-scope">Escopo</label>
                         <select id="report-scope" onchange="ui.renderReport()"></select>
                     </div>
-                    <button class="btn btn-primary" onclick="window.print()">
+                    <div class="report-mode" role="tablist" aria-label="Formato do relatório">
+                        <button type="button" class="filter-btn active" id="rmode-proto" onclick="uiActions.setReportMode('proto')">Protocolo</button>
+                        <button type="button" class="filter-btn" id="rmode-matrix" onclick="uiActions.setReportMode('matrix')">Matriz</button>
+                    </div>
+                    <button class="btn btn-primary" id="btn-report-print" onclick="window.print()">
                         <svg class="ic"><use href="#i-printer"></use></svg> Imprimir / Salvar PDF
+                    </button>
+                    <button class="btn btn-primary" id="btn-report-xlsx" style="display:none;" onclick="uiActions.exportMatrixXlsx()">
+                        <svg class="ic"><use href="#i-download"></use></svg> Exportar Excel
                     </button>
                 </div>
             </div>
             <div id="report-sheet" class="rpt-sheet"></div>
+            <div id="report-matrix" style="display:none;"></div>
         </div>
 
         <!-- SETTINGS VIEW: Global Templates -->
